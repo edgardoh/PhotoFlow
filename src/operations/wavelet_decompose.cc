@@ -53,18 +53,19 @@ in_profile( NULL )
 //  gauss = new_gaussblur();
   convert2lab = PF::new_operation( "convert2lab", NULL );
   convert2input = new_icc_transform();
+  wavelet_decompose_algo = new PF::Processor<PF::WaveletDecomposeAlgoPar,PF::WaveletDecomposeAlgoProc>();
 
   set_type("wavelet_decompose" );
 
   set_default_name( _("Wavelet Decompose") );
 }
 
-
+/*
 bool PF::WaveletDecomposePar::needs_caching()
 {
   return false;
 }
-
+*/
 
 
 VipsImage* PF::WaveletDecomposePar::build(std::vector<VipsImage*>& in, int first,
@@ -72,11 +73,61 @@ VipsImage* PF::WaveletDecomposePar::build(std::vector<VipsImage*>& in, int first
     unsigned int& level)
 {
 #if 1
-  VipsImage* srcimg = NULL;
-  if( in.size() > 0 ) srcimg = in[0];
+  std::cout<<"WaveletDecomposePar::build "<<std::endl;
+  
+  if( (in.size()<1) || (in[0]==NULL) )
+    return NULL;
+  VipsImage* srcimg = in[0];
 
-  VipsImage* wavdec = PF::OpParBase::build( in, first, NULL, omap, level );
-  return wavdec;
+  std::vector<VipsImage*> in2;
+
+  WaveletDecomposeAlgoPar* wavelet_decompose_par = dynamic_cast<WaveletDecomposeAlgoPar*>( wavelet_decompose_algo->get_par() );
+  wavelet_decompose_par->set_numScales( numScales.get() );
+  wavelet_decompose_par->set_currScale( currScale.get() );
+
+  int padding = wavelet_decompose_par->get_padding();
+
+  // Extend the image by two pixels to account for the pixel averaging window
+  // of the impulse noise reduction algorithm
+  VipsImage* extended;
+  VipsExtend extend = VIPS_EXTEND_COPY;
+  if( vips_embed(srcimg, &extended, padding, padding,
+      srcimg->Xsize+padding*2, srcimg->Ysize+padding*2,
+      "extend", extend, NULL) ) {
+    std::cout<<"ImpulseNRPar::build(): vips_embed() failed."<<std::endl;
+    PF_REF( in[0], "ImpulseNRPar::build(): vips_embed() failed." );
+    return in[0];
+  }
+
+/*  in2.clear();
+  in2.push_back(extended);
+  VipsImage* wavdec = PF::OpParBase::build( in2, first, NULL, omap, level );
+  PF_UNREF( extended, "GaussBlurPar::build(): impnrimg unref" );
+*/
+  wavelet_decompose_par->set_image_hints( extended );
+  wavelet_decompose_par->set_format( get_format() );
+  in2.clear();
+  in2.push_back( extended );
+  VipsImage* wavdec = wavelet_decompose_par->build( in2, 0, NULL, NULL, level );
+//  PF_UNREF( blurred, "DefringePar::build(): extended unref after convert2lab" );
+
+  // Final cropping to remove the padding pixels
+  VipsImage* cropped;
+  //std::cout<<"srcimg->Xsize="<<srcimg->Xsize<<"  impnrimg->Xsize="<<impnrimg->Xsize<<std::endl;
+  if( vips_crop(wavdec, &cropped, padding, padding,
+      srcimg->Xsize, srcimg->Ysize, NULL) ) {
+    std::cout<<"GaussBlurPar::build(): vips_crop() failed."<<std::endl;
+    PF_UNREF( wavdec, "GaussBlurPar::build(): impnrimg unref" );
+    PF_REF( in[0], "ImpulseNRPar::build(): vips_crop() failed" );
+    return in[0];
+  }
+  PF_UNREF( wavdec, "GaussBlurPar::build(): impnrimg unref" );
+
+  std::cout<<"wavdec->Xsize="<<wavdec->Xsize<<", wavdec->Ysize="<<wavdec->Ysize<<std::endl;
+  
+  set_image_hints( cropped );
+
+  return cropped;
 
 #endif
   

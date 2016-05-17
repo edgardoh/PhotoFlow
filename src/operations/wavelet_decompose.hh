@@ -30,53 +30,17 @@
 #ifndef PF_WAVDEC_H
 #define PF_WAVDEC_H
 
-/*
-#define UNBOUND_L 1
-#define UNBOUND_A 2
-#define UNBOUND_B 4
-#define UNBOUND_SHADOWS_L UNBOUND_L
-#define UNBOUND_SHADOWS_A UNBOUND_A
-#define UNBOUND_SHADOWS_B UNBOUND_B
-#define UNBOUND_HIGHLIGHTS_L (UNBOUND_L << 3)  
-#define UNBOUND_HIGHLIGHTS_A (UNBOUND_A << 3) 
-#define UNBOUND_HIGHLIGHTS_B (UNBOUND_B << 3)  
-#define UNBOUND_GAUSSIAN 64
-#define UNBOUND_BILATERAL 128  
-#define UNBOUND_DEFAULT                                                                                      \
-    (UNBOUND_SHADOWS_L | UNBOUND_SHADOWS_A | UNBOUND_SHADOWS_B | UNBOUND_HIGHLIGHTS_L | UNBOUND_HIGHLIGHTS_A   \
-        | UNBOUND_HIGHLIGHTS_B | UNBOUND_GAUSSIAN)
-
-#define CLAMPF(a, mn, mx) ((a) < (mn) ? (mn) : ((a) > (mx) ? (mx) : (a)))
-#define CLAMP_RANGE(x, y, z) (CLAMP(x, y, z))
-#define MMCLAMPPS(a, mn, mx) (_mm_min_ps((mx), _mm_max_ps((a), (mn))))
-*/
 
 namespace PF 
 {
-/*
-enum shahi_method_t
-{
-  SHAHI_GAUSSIAN,
-  SHAHI_BILATERAL,
-};
-
-
-inline float sign(float x)
-{
-  return (x < 0 ? -1.0f : 1.0f);
-}
-*/
-
 
 class WaveletDecomposePar: public OpParBase
 {
-//  PropertyBase method;
-//  Property<float> shadows, highlights, wp_adjustment, radius, compress, sh_color_adjustment, hi_color_adjustment;
   Property<float> numScales, currScale;
   
-//  ProcessorBase* gauss;
   ProcessorBase* convert2lab;
   ProcessorBase* convert2input;
+  ProcessorBase* wavelet_decompose_algo;
 
   cmsHPROFILE in_profile;
 
@@ -84,18 +48,71 @@ public:
   WaveletDecomposePar();
 
   bool has_intensity() { return false; }
-  bool needs_caching();
+  bool needs_caching() { return false; }
 
   float get_numScales() { return (float)numScales.get(); }
   float get_currScale() { return (float)currScale.get(); }
-/*  float get_wp_adjustment() { return wp_adjustment.get(); }
-  float get_compress() { return compress.get(); }
-  float get_sh_color_adjustment() { return sh_color_adjustment.get(); }
-  float get_hi_color_adjustment() { return hi_color_adjustment.get(); }
-*/
+  float set_numScales(float a) { numScales.set(a); }
+  float set_currScale(float a) { currScale.set(a); }
+
   VipsImage* build(std::vector<VipsImage*>& in, int first,
       VipsImage* imap, VipsImage* omap,
       unsigned int& level);
+};
+
+class WaveletDecomposeAlgoPar: public OpParBase
+{
+//  Property<float> numScales, currScale;
+  float numScales, currScale;
+
+public:
+  WaveletDecomposeAlgoPar(): 
+    OpParBase()/*, 
+    numScales("numScales",this,0),
+    currScale("currScale",this,0)*/
+{
+ //   set_type("wavelet_decompose_algo");
+    numScales, currScale = 0;
+}
+  
+//  bool has_intensity() { return false; }
+//  bool needs_caching() { return false; }
+
+  int get_padding() { return 200; }
+
+  /* Function to derive the output area from the input area
+   */
+  virtual void transform(const Rect* rin, Rect* rout)
+  {
+    int pad = get_padding();
+    rout->left = rin->left+pad;
+    rout->top = rin->top+pad;
+    rout->width = rin->width-pad*2;
+    rout->height = rin->height-pad*2;
+  }
+
+  /* Function to derive the area to be read from input images,
+     based on the requested output area
+  */
+  virtual void transform_inv(const Rect* rout, Rect* rin)
+  {
+    int pad = get_padding();
+    rin->left = rout->left-pad;
+    rin->top = rout->top-pad;
+    rin->width = rout->width+pad*2;
+    rin->height = rout->height+pad*2;
+  }
+
+
+/*  float get_numScales() { return (float)numScales.get(); }
+  float get_currScale() { return (float)currScale.get(); }
+  float set_numScales(float a) { numScales.set(a); }
+  float set_currScale(float a) { currScale.set(a); }
+*/
+  float get_numScales() { return (float)numScales; }
+  float get_currScale() { return (float)currScale; }
+  float set_numScales(float a) { numScales=(a); }
+  float set_currScale(float a) { currScale=(a); }
 };
 
 
@@ -108,13 +125,26 @@ public:
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* out, OpParBase* par)
   {
+    std::cout<<"WaveletDecomposeProc::render "<<std::endl;
+  }
+};
+
+template < OP_TEMPLATE_DEF >
+class WaveletDecomposeAlgoProc
+{
+public:
+  void render(VipsRegion** in, int n, int in_first,
+      VipsRegion* imap, VipsRegion* omap,
+      VipsRegion* out, OpParBase* par)
+  {
+    std::cout<<"WaveletDecomposeProc::render 2"<<std::endl;
   }
 };
 
 
 
 template < OP_TEMPLATE_DEF_TYPE_SPEC >
-class WaveletDecomposeProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
+class WaveletDecomposeAlgoProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
 {
 private:
 #define DWT_MAX_CHANNELS 4
@@ -139,20 +169,33 @@ public:
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* oreg, OpParBase* par)
   {
+    std::cout<<"WaveletDecomposeAlgoProc::render "<<std::endl;
+    
 //    if( n != 2 ) return;
-    if( ireg[0] == NULL ) return;
+    if( ireg[0] == NULL ) {
+      std::cout<<"WaveletDecomposeAlgoProc::render ireg[0] == NULL"<<std::endl;
+      return;
+    }
 //    if( ireg[1] == NULL ) return;
 
-    WaveletDecomposePar* opar = dynamic_cast<WaveletDecomposePar*>(par);
-    if( !opar ) return;
+    WaveletDecomposeAlgoPar* opar = dynamic_cast<WaveletDecomposeAlgoPar*>(par);
+    if( !opar ) {
+      std::cout<<"WaveletDecomposeAlgoProc::render opar == NULL"<<std::endl;
+      return;
+    }
 
     
     float *pwavdec = NULL;
 //    float *in_color_sp = NULL;
     
     Rect *r = &oreg->valid;
-    wd_width = r->width;
-    wd_height = r->height;
+    Rect *ir = &ireg[0]->valid;
+    
+    std::cout<<"WaveletDecomposeProc::render "<<std::endl;
+    std::cout<<"ir->width="<<ir->width<<",  ir->height="<<ir->height<<", r->width="<<r->width<<",  r->height="<<r->height<<std::endl;
+    
+    wd_width = ir->width;
+    wd_height = ir->height;
     const int ch = oreg->im->Bands;
 //    const int ch = 1;
     
@@ -172,7 +215,7 @@ public:
     memset(pwavdec, 0, wd_width * wd_height * ch * sizeof(float));
 //    memcpy(in_retouch, ivoid, roi_rt->width * roi_rt->height * ch * sizeof(float));
     for( int y = 0; y < wd_height; y++ ) {
-      float *pin = (float*)VIPS_REGION_ADDR( ireg[0], r->left, r->top + y );
+      float *pin = (float*)VIPS_REGION_ADDR( ireg[0], ir->left, ir->top + y );
 //      pout = (float*)VIPS_REGION_ADDR( oreg, r->left, r->top + y );
       float *pwd = pwavdec + y * wd_width * ch;
 
@@ -200,11 +243,11 @@ public:
     wd_return_layer = (int)opar->get_currScale();
     wd_clear_im = (wd_return_layer > 0);
     
-    std::cout<<"wd_ch_im: "<<wd_ch_im<<std::endl;
+ /*   std::cout<<"wd_ch_im: "<<wd_ch_im<<std::endl;
     std::cout<<"wd_channels: "<<wd_channels<<std::endl;
     std::cout<<"wd_scales: "<<wd_scales<<std::endl;
     std::cout<<"wd_return_layer: "<<wd_return_layer<<std::endl;
-    
+    */
 //    user_data = NULL;
 
 /*    // check if _this_ module should expose mask. 
@@ -217,6 +260,11 @@ public:
       usr_data.mask_display = 1;
     }
     */
+    const int max_scales2 = dwt_get_max_scale(wd_width, wd_height);
+    if (wd_scales > max_scales2)
+    {
+      std::cout<<"WaveletDecomposeAlgoProc::render: max scale is "<<max_scales2<<" for this image preview size"<<std::endl;
+    }
 /*    const int max_scales = dwt_get_max_scale(piece->buf_in.width, piece->buf_in.height);
     if (dwt_p.scales > max_scales && gui_active)
     {
@@ -265,12 +313,12 @@ public:
         for( int x = 0; x < wd_width*3; x++ ) pout[x] = 0.f;
       }
       */
-      for( int y = 0; y < wd_height; y++ ) {
+      for( int y = 0; y < r->height; y++ ) {
 //        float *pin = (float*)VIPS_REGION_ADDR( ireg[0], r->left, r->top + y );
         float *pout = (float*)VIPS_REGION_ADDR( oreg, r->left, r->top + y );
-        float *pwd = pwavdec + y * wd_width * ch;
+        float *pwd = pwavdec + (y+abs(ir->height-r->height)/2) * wd_width * ch + (abs(ir->width-r->width)/2) * ch;
 
-        for( int x = 0; x < wd_width*ch; x++ ) pout[x] = pwd[x];
+        for( int x = 0; x < r->width*ch; x++ ) pout[x] = pwd[x];
       }
 
     if (pwavdec) free(pwavdec);
