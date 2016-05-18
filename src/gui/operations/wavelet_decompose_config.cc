@@ -32,24 +32,14 @@
 
 PF::WaveletDecomposeConfigGUI::WaveletDecomposeConfigGUI( PF::Layer* layer ):
 OperationConfigGUI( layer, "Wavelet Decompose" ),
-//modeSelector( this, "method", _("soften with: "), 0 ),
 numScales_slider( this, "numScales", _("Scales"), 50, 0, 15, 1, 1, 1),
-currScale_slider( this, "currScale", _("Current Scale"), 50, 0, 16, 1, 1, 1)
-/*wp_adj_slider( this, "wp_adjustment", _("whithe point adjustment"), 0, -10, 10, 0.2, 1, 1),
-radius_slider( this, "radius", _("radius"), 100, 0, 200, 2, 10, 1),
-compress_slider( this, "compress", _("compress"), 50, 0, 100, 2, 10, 1),
-sh_color_adj_slider( this, "sh_color_adjustment", _("shadows color adjustment"), 100, 0, 100, 2, 10, 1),
-hi_color_adj_slider( this, "hi_color_adjustment", _("highlights color adjustment"), 50, 0, 100, 2, 10, 1)*/
+currScale_slider( this, "currScale", _("Current Scale"), 50, 0, 16, 1, 1, 1),
+blendFactor_slider( this, "blendFactor", _("Blend Factor"), 50, 0., 1., 0.1, 0.05, 1)
 {
   controlsBox.pack_start( numScales_slider, Gtk::PACK_SHRINK );
   controlsBox.pack_start( currScale_slider, Gtk::PACK_SHRINK );
-/*  controlsBox.pack_start( wp_adj_slider, Gtk::PACK_SHRINK );
-  controlsBox.pack_start( modeSelector, Gtk::PACK_SHRINK );
-  controlsBox.pack_start( radius_slider, Gtk::PACK_SHRINK );
-  controlsBox.pack_start( compress_slider, Gtk::PACK_SHRINK );
-  controlsBox.pack_start( sh_color_adj_slider, Gtk::PACK_SHRINK );
-  controlsBox.pack_start( hi_color_adj_slider, Gtk::PACK_SHRINK );
-*/
+  controlsBox.pack_start( blendFactor_slider, Gtk::PACK_SHRINK );
+
   add_widget( controlsBox );
 
   get_main_box().show_all_children();

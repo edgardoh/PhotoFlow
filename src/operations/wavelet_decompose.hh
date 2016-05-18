@@ -36,7 +36,7 @@ namespace PF
 
 class WaveletDecomposePar: public OpParBase
 {
-  Property<float> numScales, currScale;
+  Property<float> numScales, currScale, blendFactor;
   
   ProcessorBase* convert2lab;
   ProcessorBase* convert2input;
@@ -51,9 +51,11 @@ public:
   bool needs_caching() { return false; }
 
   float get_numScales() { return (float)numScales.get(); }
-  float get_currScale() { return (float)currScale.get(); }
   float set_numScales(float a) { numScales.set(a); }
+  float get_currScale() { return (float)currScale.get(); }
   float set_currScale(float a) { currScale.set(a); }
+  float get_blendFactor() { return (float)blendFactor.get(); }
+  float set_blendFactor(float a) { blendFactor.set(a); }
 
   VipsImage* build(std::vector<VipsImage*>& in, int first,
       VipsImage* imap, VipsImage* omap,
@@ -62,23 +64,27 @@ public:
 
 class WaveletDecomposeAlgoPar: public OpParBase
 {
-//  Property<float> numScales, currScale;
-  float numScales, currScale;
+  float numScales, currScale, blendFactor;
 
 public:
-  WaveletDecomposeAlgoPar(): 
-    OpParBase()/*, 
-    numScales("numScales",this,0),
-    currScale("currScale",this,0)*/
+  WaveletDecomposeAlgoPar(): OpParBase()
 {
- //   set_type("wavelet_decompose_algo");
     numScales, currScale = 0;
+    blendFactor = .128f;
 }
   
-//  bool has_intensity() { return false; }
-//  bool needs_caching() { return false; }
+  int get_padding() { return pow(2, get_numScales()); }
 
-  int get_padding() { return 200; }
+  int get_maxScales(const int width, const int height)
+  {
+    int maxscale = 0;
+    
+    /* smallest edge must be higher than or equal to 2^scales */
+    unsigned int size = MIN(width, height);
+    while (size >>= 1) maxscale++;
+
+    return maxscale;
+  } 
 
   /* Function to derive the output area from the input area
    */
@@ -103,16 +109,12 @@ public:
     rin->height = rout->height+pad*2;
   }
 
-
-/*  float get_numScales() { return (float)numScales.get(); }
-  float get_currScale() { return (float)currScale.get(); }
-  float set_numScales(float a) { numScales.set(a); }
-  float set_currScale(float a) { currScale.set(a); }
-*/
   float get_numScales() { return (float)numScales; }
+  float set_numScales(float a) { numScales=a; }
   float get_currScale() { return (float)currScale; }
-  float set_numScales(float a) { numScales=(a); }
-  float set_currScale(float a) { currScale=(a); }
+  float set_currScale(float a) { currScale=a; }
+  float get_blendFactor() { return (float)blendFactor; }
+  float set_blendFactor(float a) { blendFactor=a; }
 };
 
 
@@ -125,7 +127,7 @@ public:
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* out, OpParBase* par)
   {
-    std::cout<<"WaveletDecomposeProc::render "<<std::endl;
+//    std::cout<<"WaveletDecomposeProc::render "<<std::endl;
   }
 };
 
@@ -137,7 +139,7 @@ public:
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* out, OpParBase* par)
   {
-    std::cout<<"WaveletDecomposeProc::render 2"<<std::endl;
+//    std::cout<<"WaveletDecomposeProc::render 2"<<std::endl;
   }
 };
 
@@ -160,8 +162,9 @@ private:
     int wd_scales;
     int wd_return_layer;
     int wd_clear_im; // clear the image before return
-//    void *user_data;
 //  } dwt_params_t;
+    float wd_blend_factor; // .128f
+    int wd_max_scales;
 #define INDEX_WT_IMAGE(ch, index) (((index)*ch)+c)
 
 public:
@@ -171,12 +174,10 @@ public:
   {
     std::cout<<"WaveletDecomposeAlgoProc::render "<<std::endl;
     
-//    if( n != 2 ) return;
     if( ireg[0] == NULL ) {
       std::cout<<"WaveletDecomposeAlgoProc::render ireg[0] == NULL"<<std::endl;
       return;
     }
-//    if( ireg[1] == NULL ) return;
 
     WaveletDecomposeAlgoPar* opar = dynamic_cast<WaveletDecomposeAlgoPar*>(par);
     if( !opar ) {
@@ -186,7 +187,6 @@ public:
 
     
     float *pwavdec = NULL;
-//    float *in_color_sp = NULL;
     
     Rect *r = &oreg->valid;
     Rect *ir = &ireg[0]->valid;
@@ -197,26 +197,16 @@ public:
     wd_width = ir->width;
     wd_height = ir->height;
     const int ch = oreg->im->Bands;
-//    const int ch = 1;
-    
-//    _rt_rt_user_data_t usr_data = {0};
-//    wt_preview_types_t preview_type = wt_preview_type;
-    
-//    int gui_active = 0;
-//    if (self->dev) gui_active = (self == self->dev->gui_module);
-//    if (!gui_active && preview_type == WT_PREVIEW_CURRENT_SCALE) preview_type = WT_PREVIEW_FINAL_IMAGE;
     
 //    dwt_params_t dwt_p;
-//    wt_decompose_channels_t channels_req = wt_get_requested_channels(p);
     
 //    memset(&dwt_p, 0, sizeof(dwt_p));
     
     pwavdec = (float*)malloc(wd_width * wd_height * ch * sizeof(float));
     memset(pwavdec, 0, wd_width * wd_height * ch * sizeof(float));
-//    memcpy(in_retouch, ivoid, roi_rt->width * roi_rt->height * ch * sizeof(float));
+
     for( int y = 0; y < wd_height; y++ ) {
       float *pin = (float*)VIPS_REGION_ADDR( ireg[0], ir->left, ir->top + y );
-//      pout = (float*)VIPS_REGION_ADDR( oreg, r->left, r->top + y );
       float *pwd = pwavdec + y * wd_width * ch;
 
       for( int x = 0; x < wd_width*ch; x++ ) pwd[x] = pin[x];
@@ -229,102 +219,29 @@ public:
     if (ch >= 3) wd_channels_img[wd_channels++] = 2;
     if (wd_channels == 0) wd_channels = 1;
     
-/*    usr_data.self = self;
-    usr_data.piece = piece;
-    usr_data.roi = *roi_rt;
-    usr_data.mask_display = 0;
-*/
-    
     wd_image = pwavdec;
     wd_ch_im = ch;
-//    width = width;
-//    height = height;
     wd_scales = (int)opar->get_numScales();
     wd_return_layer = (int)opar->get_currScale();
     wd_clear_im = (wd_return_layer > 0);
+    wd_blend_factor = opar->get_blendFactor();
     
- /*   std::cout<<"wd_ch_im: "<<wd_ch_im<<std::endl;
-    std::cout<<"wd_channels: "<<wd_channels<<std::endl;
-    std::cout<<"wd_scales: "<<wd_scales<<std::endl;
-    std::cout<<"wd_return_layer: "<<wd_return_layer<<std::endl;
-    */
-//    user_data = NULL;
-
-/*    // check if _this_ module should expose mask. 
-    if(self->request_mask_display && self->dev->gui_attached && (self == self->dev->gui_module)
-       && (piece->pipe == self->dev->pipe) )
+    wd_max_scales = opar->get_maxScales(wd_width, wd_height);
+    if (wd_scales > wd_max_scales)
     {
-      for(size_t j = 0; j < roi_rt->width*roi_rt->height*ch; j += ch) in_retouch[j + 3] = 0.f;
+      std::cout<<"WaveletDecomposeAlgoProc::render: max scale is "<<wd_max_scales<<" for this image preview size"<<std::endl;
+    }
+
+    dwt_decompose();
       
-      piece->pipe->mask_display = 1;
-      usr_data.mask_display = 1;
-    }
-    */
-    const int max_scales2 = dwt_get_max_scale(wd_width, wd_height);
-    if (wd_scales > max_scales2)
-    {
-      std::cout<<"WaveletDecomposeAlgoProc::render: max scale is "<<max_scales2<<" for this image preview size"<<std::endl;
-    }
-/*    const int max_scales = dwt_get_max_scale(piece->buf_in.width, piece->buf_in.height);
-    if (dwt_p.scales > max_scales && gui_active)
-    {
-      dt_control_log(_("max scale is %i for this image size"), max_scales);
-    }
-    else
-    {
-      const int max_scales2 = dwt_get_max_scale(roi_rt->width, roi_rt->height);
-      if (dwt_p.scales > max_scales2 && gui_active)
-      {
-        printf("max scale is %i for this image preview size\n", max_scales2);
-      }
-    }
-    */
-    // convert to rgb/lab if needed
-//    wt_convert_from_to_colorspace(p, in_retouch, roi_rt, &in_color_sp,ch, 1);
+    for( int y = 0; y < r->height; y++ ) {
+      float *pout = (float*)VIPS_REGION_ADDR( oreg, r->left, r->top + y );
+      float *pwd = pwavdec + (y+abs(ir->height-r->height)/2) * wd_width * ch + (abs(ir->width-r->width)/2) * ch;
 
-/*    if(self->suppress_mask && self->dev->gui_attached && (self == self->dev->gui_module)
-       && (piece->pipe == self->dev->pipe))
-    {*/
-    
-      dwt_decompose();
-      
-/*    }
-    else
-    {
-      dwt_decompose(&dwt_p, rt_process_forms);
+      for( int x = 0; x < r->width*ch; x++ ) pout[x] = pwd[x];
     }
-*/
-    // convert back from rgb/lab
-/*    if (preview_type == WT_PREVIEW_FINAL_IMAGE)
-    {
-      wt_convert_from_to_colorspace(p, in_retouch, roi_rt, &in_color_sp, ch, 0);
-    }
-*/
-/*    if (dwt_p.wd_return_layer > 0)
-    {
-      wt_lighten_rgb(in_retouch, roi_rt->width, roi_rt->height, wt_exposure, wt_bclip_percent, wt_wclip_percent, ch, wt_normalize);
-    }
-    */
-//    wt_copy_ft_to_out(in_retouch, roi_rt, ovoid, roi_out, ch);
-/*      for( int y = 0; y < wd_height; y++ ) {
-//        float *pin = (float*)VIPS_REGION_ADDR( ireg[0], r->left, r->top + y );
-        float *pout = (float*)VIPS_REGION_ADDR( oreg, r->left, r->top + y );
-
-        for( int x = 0; x < wd_width*3; x++ ) pout[x] = 0.f;
-      }
-      */
-      for( int y = 0; y < r->height; y++ ) {
-//        float *pin = (float*)VIPS_REGION_ADDR( ireg[0], r->left, r->top + y );
-        float *pout = (float*)VIPS_REGION_ADDR( oreg, r->left, r->top + y );
-        float *pwd = pwavdec + (y+abs(ir->height-r->height)/2) * wd_width * ch + (abs(ir->width-r->width)/2) * ch;
-
-        for( int x = 0; x < r->width*ch; x++ ) pout[x] = pwd[x];
-      }
 
     if (pwavdec) free(pwavdec);
-//    if (in_color_sp) free(in_color_sp);
-
-
     
   }
   
@@ -337,18 +254,17 @@ private:
   #endif
     
     /* this function prepares for decomposing, which is done in the function dwt_wavelet_decompose() */
-    int max_scale = dwt_get_max_scale(wd_width, wd_height);
+//    int max_scale = get_maxScales(wd_width, wd_height);
     int i, c, x;
     float *img = NULL;
     float *line;
     
-    if (wd_scales > max_scale) wd_scales = max_scale;
+    if (wd_scales > wd_max_scales) wd_scales = wd_max_scales;
     if (wd_return_layer > wd_scales+1) wd_return_layer = wd_scales+1;
     
     wd_layers = (float *)malloc(wd_width * wd_height * wd_channels * sizeof(float));
     if (wd_layers == NULL)
     {
-      //dt_control_log(_("not enough memory for wavelet decomposition"));
       std::cout<<"not enough memory for wavelet decomposition"<<std::endl;
       goto cleanup;
     }
@@ -357,7 +273,6 @@ private:
     img = (float *)malloc(wd_width * wd_height * wd_channels * sizeof(float));
     if (img == NULL)
     {
-      //dt_control_log(_("not enough memory for wavelet decomposition"));
       std::cout<<"not enough memory for wavelet decomposition"<<std::endl;
       goto cleanup;
     }
@@ -384,9 +299,7 @@ private:
       }
     }
 
-//    if (layer_func) layer_func(img, p, 0);
-    
-      dwt_wavelet_decompose(img);
+    dwt_wavelet_decompose(img);
 
     
   #ifdef _TIME_FFT_
@@ -414,7 +327,7 @@ private:
     
     const float lpass_add = sqrtf(.25f);
     const float lpass_mult = (1.f / 16.f);
-    const float lpass_sub = .128f;
+    const float lpass_sub = wd_blend_factor; //.128f;
     
     const int size = wd_width * wd_height * wd_channels;
 
@@ -424,7 +337,6 @@ private:
     buffer[1] = (float *)malloc(size * sizeof(float));
     if (buffer[1] == NULL)
     {
-      //dt_control_log(_("not enough memory for wavelet decomposition"));
       std::cout<<"not enough memory for wavelet decomposition"<<std::endl;
       goto cleanup;
     }
@@ -433,7 +345,6 @@ private:
     temp = (float *)malloc(MAX(wd_width, wd_height) * wd_channels * sizeof(float));
     if (temp == NULL)
     {
-      //dt_control_log(_("not enough memory for wavelet decomposition"));
       std::cout<<"not enough memory for wavelet decomposition"<<std::endl;
       goto cleanup;
     }
@@ -484,8 +395,6 @@ private:
         buffer[hpass][i] -= buffer[lpass][i] - lpass_sub;
       }
 
-//      if (layer_func) layer_func(buffer[hpass], p, lev + 1);
-      
       if (wd_return_layer == 0)
       {
         dwt_add_layer(buffer[hpass], lev + 1);
@@ -503,17 +412,11 @@ private:
     //  Wavelet residual
     if (wd_return_layer == wd_scales+1)
     {
-//      if (layer_func) layer_func(buffer[lpass], p, wd_scales+1);
-      
       dwt_get_image_layer(buffer[lpass]);
     }
     else if (wd_return_layer == 0)
     {
-//      if (layer_func) layer_func(buffer[hpass], p, wd_scales+1);
-      
       dwt_add_layer(buffer[hpass], wd_scales+1);
-      
-//      if (layer_func) layer_func(wd_layers, p, wd_scales+2);
       
       dwt_get_image_layer(wd_layers);
     }
@@ -526,7 +429,7 @@ private:
 
   void dwt_add_layer(float *const img, const int n_scale)
   {
-    const float lpass_sub = .128f;
+    const float lpass_sub = wd_blend_factor; //.128f;
     
     if (n_scale == wd_scales+1)
     {
@@ -553,27 +456,9 @@ private:
 
   void dwt_get_image_layer(float *const layer)
   {
-//    const int channels = (wd_channels==4) ? channels-1: channels;
-    
     if (wd_clear_im)
     {
-      if (wd_ch_im == 4)
-      {
-        // don't want to erase the mask in the alpha channel
-        for (int y=0; y < wd_height; y++)
-        {
-          float *l = wd_image + (y * wd_width * wd_ch_im);
-          
-          for (int x=0; x < wd_width; x++, l+=4)
-          {
-            l[0] = l[1] = l[2] = 0;
-          }
-        }
-      }
-      else
-      {
-        memset(wd_image, 0, wd_width * wd_height * wd_ch_im * sizeof(float));
-      }
+      memset(wd_image, 0, wd_width * wd_height * wd_ch_im * sizeof(float));
     }
     
   #ifdef _FFT_MULTFR_x
@@ -622,17 +507,6 @@ private:
     }
     
   }
-
-  int dwt_get_max_scale(const int width, const int height)
-  {
-    int maxscale = 0;
-    
-    /* smallest edge must be higher than or equal to 2^scales */
-    unsigned int size = MIN(width, height);
-    while (size >>= 1) maxscale++;
-
-    return maxscale;
-  } 
 
 
 };
