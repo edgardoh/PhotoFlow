@@ -46,4 +46,3 @@ blendFactor_slider( this, "blendFactor", _("Blend Factor"), 50, 0., 1., 0.1, 0.0
 }
 
 
-

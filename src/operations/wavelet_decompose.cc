@@ -118,3 +118,4 @@ PF::ProcessorBase* PF::new_wavelet_decompose()
 {
   return new PF::Processor<PF::WaveletDecomposePar,PF::WaveletDecomposeProc>();
 }
+
