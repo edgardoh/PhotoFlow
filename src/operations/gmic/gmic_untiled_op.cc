@@ -116,7 +116,17 @@ bool PF::GmicUntiledOperationPar::run_gmic( VipsImage* in, std::string command )
   std::cout<<"g'mic command: "<<command<<std::endl;
   if( !new_gmic() ) 
     return false;
-  gmic_instance->run( command.c_str() );
+  
+  try 
+  {
+    gmic_instance->run( command.c_str() );
+  } 
+  catch (gmic_exception &e) // In case something went wrong.
+  { 
+    std::cout<<"PF::GmicUntiledOperationPar::run_gmic error: "<<e.what()<<std::endl;
+    return false;
+  }
+  
   
   if( gmic_instance ) {
     delete gmic_instance;
@@ -124,6 +134,130 @@ bool PF::GmicUntiledOperationPar::run_gmic( VipsImage* in, std::string command )
   }
   
   raster_images_attach( in );
+  
+  return true;
+}
+
+bool PF::GmicUntiledOperationPar::run_gmic2( VipsImage* in, VipsImage** out, std::string command )
+{
+  if( command.empty() ) 
+    return false;
+  std::cout<<"g'mic command: "<<command<<std::endl;
+  if( !new_gmic() ) 
+    return false;
+  
+  VipsImage *t0;
+  VipsImage *t1;
+
+  /* Convert input to a float membuffer.
+   */
+  std::cout<<"vips_image_new_memory()"<<std::endl;
+  t1 = vips_image_new_memory();
+  std::cout<<"vips_cast_float()"<<std::endl;
+  if( vips_cast_float( in, &t0, NULL ) )
+    return( false ); 
+  std::cout<<"vips_image_write()"<<std::endl;
+  if( vips_image_write( t0, t1 ) )
+    return( false ); 
+
+  float *in_img = (float*)t1->data;
+  
+  gmic_list<float> image_list;
+  image_list.assign(1);
+  gmic_list<char> image_names;
+  
+  int width = in->Xsize;
+  int height = in->Ysize;
+  int ch = in->Bands;
+  
+
+  std::cout<<"copy image to gmic"<<std::endl;
+  // Initialize each image of 'image_list'
+  {
+    gmic_image<float>& img = image_list[0];
+    img.assign(width, height, 1, ch);
+
+    // Fill image buffer
+    float *ptr = img._data;
+    for (unsigned int c = 0; c<img._spectrum; ++c) // ch channels.
+    {
+      for (unsigned int y = 0; y<img._height; ++y) // height rows.
+      {
+        const float *g_in = in_img + (y*width*ch);
+        for (unsigned int x = 0; x<img._width; ++x) //  columns.
+        {
+          *(ptr++) = g_in[(x*ch)+c]*255.f;
+        }
+      }
+    }
+  }
+
+  std::cout<<"call gmic"<<std::endl;
+
+ 
+  try 
+  {
+    gmic_instance->run( command.c_str(), image_list, image_names );
+  } 
+  catch (gmic_exception &e) // In case something went wrong.
+  { 
+    std::cout<<"PF::GmicUntiledOperationPar::run_gmic2 error: "<<e.what()<<std::endl;
+    return false;
+  }
+
+  std::cout<<"image_list._width="<<image_list._width<<std::endl;
+  
+  std::cout<<"copy gmic output"<<std::endl;
+  
+  float *buf = NULL;
+  
+  *out = vips_image_new_memory();
+  set_metadata( in, *out );
+  buf = (float*)malloc((height*width*ch) * sizeof(float));
+  
+  {
+    gmic_image<float>& img = image_list[0];
+    float *ptr = image_list[0]._data;
+    
+    std::cout<<"img._height="<<img._height<<", img._width="<<img._width<<", img._spectrum="<<img._spectrum<<std::endl;
+
+/*  g_assert(img._spectrum <= (unsigned int)ch);
+    g_assert(img._height <= (unsigned int)height);
+    g_assert(img._width <= (unsigned int)width);
+*/  
+    
+//    for (unsigned int c = 0; c<img._spectrum; ++c) // ch channels.
+//    {
+      for (unsigned int y = 0; y<img._height; ++y) // height rows.
+      {
+        float *g_out = buf + (y*width*ch);
+        for (unsigned int x = 0; x<img._width; ++x) //  columns.
+        {
+          g_out[(x*ch)+0] = g_out[(x*ch)+1] = g_out[(x*ch)+2] = (*(ptr++))/255.f;
+        }
+      }
+//    }
+  }
+
+  std::cout<<"update out image"<<std::endl;
+  
+  for (unsigned int y = 0; y<height; ++y) // height rows.
+  {
+      if( vips_image_write_line( *out, y, (VipsPel *) (buf + (y*width*ch)) ) )
+      {
+        std::cout<<"vips_image_write_line() error line "<<y<<std::endl;
+        return( false );
+      }
+  }
+
+  free(buf);
+
+  std::cout<<"return gmic image"<<std::endl;
+  
+  if( gmic_instance ) {
+    delete gmic_instance;
+    gmic_instance = NULL;
+  }
   
   return true;
 }

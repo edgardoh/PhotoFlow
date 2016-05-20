@@ -27,59 +27,46 @@
 
  */
 
-#ifndef GMIC_UNTILED_OP__H
-#define GMIC_UNTILED_OP__H
+#ifndef GMIC_FREAKY_BW_H
+#define GMIC_FREAKY_BW_H
 
 
 #include "../../base/processor.hh"
 
-#include "../convertformat.hh"
-#include "../raster_image.hh"
-#include "../untiled_op.hh"
-
-#include "../../vips/gmic/gmic/src/gmic.h"
+#include "gmic_untiled_op.hh"
 
 
 namespace PF 
 {
 
-  class GmicUntiledOperationPar: public UntiledOperationPar
+  class GmicFreaky_BWPar: public GmicUntiledOperationPar
   {
-    char* custom_gmic_commands;
-    gmic* gmic_instance;
-
-  protected:
-
-    gmic* new_gmic();
+    Property<float> prop_strength;
+    Property<float> prop_oddness;
+    Property<float> prop_brightness;
+    Property<float> prop_contrast;
 
   public:
-    GmicUntiledOperationPar();
-    ~GmicUntiledOperationPar();
+    GmicFreaky_BWPar();
+    ~GmicFreaky_BWPar() { std::cout<<"~GmicFreaky_BWPar() called."<<std::endl; }
 
-    bool has_intensity() { return false; }
+/*    bool has_intensity() { return false; }
     bool has_opacity() { return true; }
     bool needs_caching() { return false; }
-    bool init_hidden() { return false; }
-
-    virtual void set_metadata( VipsImage* in, VipsImage* out )
-    {
-      UntiledOperationPar::set_metadata( in, out );
-      vips_image_init_fields( out,
-          in->Xsize, in->Ysize, in->Bands,
-          IM_BANDFMT_FLOAT,
-          in->Coding, in->Type, in->Xres, in->Yres
-          );
-    }
-
-    bool run_gmic( VipsImage* in, std::string command );
-
-    bool run_gmic2( VipsImage* in, VipsImage** out, std::string command );
+    bool init_hidden() { return true; }
+*/
+    VipsImage* build(std::vector<VipsImage*>& in, int first, 
+                     VipsImage* imap, VipsImage* omap, 
+                     unsigned int& level);
+/*    std::vector<VipsImage*> build_many(std::vector<VipsImage*>& in, int first,
+        VipsImage* imap, VipsImage* omap,
+        unsigned int& level);*/
   };
 
   
 
   template < OP_TEMPLATE_DEF > 
-  class GmicUntiledOperationProc
+  class GmicFreaky_BWProc
   {
   public: 
     void render(VipsRegion** ireg, int n, int in_first,
@@ -92,6 +79,7 @@ namespace PF
 
 
 
+  ProcessorBase* new_gmic_freaky_bw();
 }
 
 #endif 

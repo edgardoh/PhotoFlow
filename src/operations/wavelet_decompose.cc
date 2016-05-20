@@ -64,6 +64,12 @@ VipsImage* PF::WaveletDecomposePar::build(std::vector<VipsImage*>& in, int first
 
   std::vector<VipsImage*> in2;
 
+  bool do_caching = true;
+  int tw = 128, th = 128, nt = 1000;
+  VipsAccess acc = VIPS_ACCESS_RANDOM;
+  int threaded = 1, persistent = 0;
+
+
   WaveletDecomposeAlgoPar* wavelet_decompose_par = dynamic_cast<WaveletDecomposeAlgoPar*>( wavelet_decompose_algo->get_par() );
   int max_scales = wavelet_decompose_par->get_maxScales(srcimg->Xsize, srcimg->Ysize);
   if (numScales.get() > max_scales) {
@@ -88,12 +94,25 @@ VipsImage* PF::WaveletDecomposePar::build(std::vector<VipsImage*>& in, int first
     return in[0];
   }
 
-  wavelet_decompose_par->set_image_hints( extended );
+  // Memory caching of the padded image
+  VipsImage* cached = extended;
+  if( do_caching ) {
+    if( vips_tilecache(extended, &cached,
+        "tile_width", tw, "tile_height", th, "max_tiles", nt,
+        "access", acc, "threaded", threaded, "persistent", persistent, NULL) ) {
+      std::cout<<"GaussBlurPar::build(): vips_tilecache() failed."<<std::endl;
+      return NULL;
+    }
+    PF_UNREF( extended, "WaveletDecomposePar::build(): extended unref" );
+  }
+
+  wavelet_decompose_par->set_image_hints( cached );
   wavelet_decompose_par->set_format( get_format() );
   in2.clear();
-  in2.push_back( extended );
+  in2.push_back( cached );
   VipsImage* wavdec = wavelet_decompose_par->build( in2, 0, NULL, NULL, level );
-
+  PF_UNREF( cached, "WaveletDecomposePar::build(): cached unref" );
+  
   // Final cropping to remove the padding pixels
   VipsImage* cropped;
   if( vips_crop(wavdec, &cropped, padding, padding,

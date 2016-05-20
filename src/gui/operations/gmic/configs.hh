@@ -54,6 +54,7 @@
 #include "smooth_guided_config.hh"
 #include "iain_denoise_config.hh"
 #include "dream_smooth_config.hh"
+#include "freaky_bw_config.hh"
 #include "extract_foreground_config.hh"
 #include "tone_mapping_config.hh"
 #include "inpaint_config.hh"

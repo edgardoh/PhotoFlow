@@ -85,6 +85,8 @@ PF::OperationConfigGUI* PF::new_gmic_operation_config( std::string op_type, PF::
     dialog = new PF::GmicIainDenoiseConfigGUI( current_layer );
   } else if( op_type == "gmic_dream_smooth" ) {
     dialog = new PF::GmicDreamSmoothConfigGUI( current_layer );
+  } else if( op_type == "gmic_freaky_bw" ) {
+    dialog = new PF::GmicFreaky_BWConfigGUI( current_layer );
   } else if( op_type == "gmic_extract_foreground" ) {
     dialog = new PF::GmicExtractForegroundConfigGUI( current_layer );
   } else if( op_type == "gmic_tone_mapping" ) {

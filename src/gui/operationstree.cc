@@ -340,6 +340,7 @@ PF::OperationsTreeDialog::OperationsTreeDialog( Image* img, LayerWidget* lw ):
 #ifndef PF_DISABLE_GMIC
   //op_gmic.get_tree().add_op( "G'MIC Interpreter"), "gmic" );
   op_gmic.get_tree().add_op( _("Dream Smoothing"), "gmic_dream_smooth" );
+  op_gmic.get_tree().add_op( _("Freaky B&W"), "gmic_freaky_bw" );
   op_gmic.get_tree().add_op( _("Gradient Norm"), "gmic_gradient_norm" );
   //too generic op_gmic.get_tree().add_op( _("Convolve"), "gmic_convolve" );
   //crashes op_gmic.get_tree().add_op( _("Extract Foreground"), "gmic_extract_foreground" );
