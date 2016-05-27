@@ -39,6 +39,7 @@
 #include <map>
 #include <glib-object.h>
 #include <sigc++/sigc++.h>
+#include <gtkmm.h>
 
 namespace PF
 {
@@ -156,6 +157,17 @@ namespace PF
     return str;
   }
 
+/*  template<class T>
+  std::istream& operator >>( std::istream& str, Gdk::RGBA& value )
+  {
+	double color;
+	str>>color; value.set_red(color);
+	str>>color; value.set_green(color);
+	str>>color; value.set_blue(color);
+	str>>color; value.set_alpha(color);
+    return str;
+  }
+*/
   template<class T>
   std::ostream& operator <<( std::ostream& str, const std::vector<T>& vector )
   {
@@ -167,6 +179,16 @@ namespace PF
     return str;
   }
 
+/*  template<class T>
+  std::ostream& operator <<( std::ostream& str, const Gdk::RGBA& value )
+  {
+	str<<value.get_red();
+	str<<value.get_green();
+	str<<value.get_blue();
+	str<<value.get_alpha();
+    return str;
+  }
+*/
 
 
   class PropertyBase: public sigc::trackable

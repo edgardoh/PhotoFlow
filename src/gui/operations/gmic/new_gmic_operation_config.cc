@@ -105,6 +105,10 @@ PF::OperationConfigGUI* PF::new_gmic_operation_config( std::string op_type, PF::
     dialog = new PF::GmicTransferColorsConfigGUI( current_layer );
   } else if( op_type == "gmic_watermark_fourier" ) {
     dialog = new PF::GmicWatermarkFourierConfigGUI( current_layer );
+  } else if( op_type == "gmic_generic_tiled" ) {
+    dialog = new PF::GmicGenericTiledConfigGUI( current_layer );
+  } else if( op_type == "gmic_generic_untiled" ) {
+    dialog = new PF::GmicGenericUntiledConfigGUI( current_layer );
     //insert new operations here
   }
 

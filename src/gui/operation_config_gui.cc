@@ -1166,8 +1166,9 @@ PF::ProcessorBase* PF::new_operation_with_gui( std::string op_type, PF::Layer* c
 
   if( processor ) {
     PF::OpParBase* current_op = processor->get_par();
-    if( current_op && dialog )
+    if( current_op && dialog ) {
       current_op->set_config_ui( dialog );
+    }
   }
 
   return processor;

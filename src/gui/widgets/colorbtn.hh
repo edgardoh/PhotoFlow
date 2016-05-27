@@ -27,8 +27,8 @@
 
  */
 
-#ifndef TEXTBOX_HH
-#define TEXTBOX_HH
+#ifndef COLORBTN_HH
+#define COLORBTN_HH
 
 #include <gtkmm.h>
 
@@ -36,22 +36,41 @@
 
 namespace PF {
 
-  class TextBox: public Gtk::HBox, public PFWidget
+  class ColorBtn: public Gtk::HBox/*, public PFWidget*/
   {
-    Gtk::Label label;
-    Gtk::Entry entry;
+	  Gtk::ColorButton colorbtn;
+	  Gtk::Label label;
+	  Gtk::HBox hbox_btn;
 
   public:
-    TextBox(OperationConfigGUI* dialog, std::string pname, std::string l, std::string val);
-    TextBox(OperationConfigGUI* dialog, std::string pname, std::string l, double val);
+#ifdef GTKMM_2
+	  ColorBtn(OperationConfigGUI* dialog, std::string pname, Glib::ustring l, const Color& val);
+#endif
+#ifdef GTKMM_3
+	  ColorBtn(OperationConfigGUI* dialog, std::string pname, Glib::ustring l, Gdk::RGBA val);
+#endif
 
-    ~TextBox() {}
+    ~ColorBtn() {}
 
+    
     void get_value();
     void set_value();
 
-    Glib::ustring get();
-    void set(Glib::ustring s);
+#ifdef GTKMM_3
+    void get_color(Gdk::RGBA value);
+#endif
+#ifdef GTKMM_2
+    void get_color(Gdk::Color value);
+#endif
+#ifdef GTKMM_3
+    void set_color(Gdk::RGBA value);
+#endif
+#ifdef GTKMM_2
+    void set_color(Gdk::Color value);
+#endif
+    Glib::ustring get_text();
+    void set_text(Glib::ustring l);
+
   };
 
 

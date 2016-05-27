@@ -47,11 +47,17 @@ namespace PF {
       add(col_name); 
       add(col_nickname); 
       add(col_help);
+      add(col_command);
+      add(col_arguments);
+      add(col_phf_arguments);
     }
     
     Gtk::TreeModelColumn<Glib::ustring> col_name;
     Gtk::TreeModelColumn<std::string> col_nickname;
     Gtk::TreeModelColumn<Glib::ustring> col_help;
+    Gtk::TreeModelColumn<std::string> col_command;
+    Gtk::TreeModelColumn<std::string> col_arguments;
+    Gtk::TreeModelColumn<std::string> col_phf_arguments;
   };
 
   class OperationsTree : public Gtk::TreeView
@@ -143,6 +149,10 @@ namespace PF {
     void add_layer();
 
     void open();
+    
+    std::string get_selected_op_type();
+    void load_gmic_filters(OperationsTreeWidget *op_tree_gmic);
+
   };
 
 }

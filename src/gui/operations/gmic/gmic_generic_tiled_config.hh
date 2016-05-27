@@ -27,33 +27,27 @@
 
  */
 
-#ifndef TEXTBOX_HH
-#define TEXTBOX_HH
+#ifndef GMIC_GENERIC_TILED_CONFIG_DIALOG_HH
+#define GMIC_GENERIC_TILED_CONFIG_DIALOG_HH
 
 #include <gtkmm.h>
 
-#include "pfwidget.hh"
+#include "../../operation_config_gui.hh"
+
 
 namespace PF {
 
-  class TextBox: public Gtk::HBox, public PFWidget
+  class GmicGenericTiledConfigGUI: public OperationConfigGUI
   {
-    Gtk::Label label;
-    Gtk::Entry entry;
+    Gtk::VBox controlsBox;
 
   public:
-    TextBox(OperationConfigGUI* dialog, std::string pname, std::string l, std::string val);
-    TextBox(OperationConfigGUI* dialog, std::string pname, std::string l, double val);
+    GmicGenericTiledConfigGUI( Layer* l );
+    
+    void post_init(std::vector<std::string>& columns);
 
-    ~TextBox() {}
-
-    void get_value();
-    void set_value();
-
-    Glib::ustring get();
-    void set(Glib::ustring s);
+    void create_parameters_gui(std::string filter_arguments, const bool reset_params);
   };
-
 
 }
 

@@ -107,6 +107,8 @@ namespace PF
   {
     std::list<std::string> initial_params;
 
+    std::vector<std::string> additional_columns;
+
     Layer* layer;
 
   public:
@@ -122,6 +124,10 @@ namespace PF
     virtual void update() = 0;
     virtual void do_update() { update(); }
     virtual void update_properties() = 0;
+    
+    virtual void post_init(std::vector<std::string>& columns) { additional_columns = columns; }
+    virtual std::vector<std::string>& get_columns() { return additional_columns; }
+
   };
 
   /* Base class for all operation parameter implementations
@@ -165,6 +171,8 @@ namespace PF
     PropertyBase cmyk_target_channel;
 
     Property<bool> mask_enabled;
+    
+    std::vector<std::string> additional_columns;
 
   public:
     sigc::signal<void> signal_modified;
@@ -238,6 +246,8 @@ namespace PF
     std::string get_default_name() { return default_name; }
     void set_default_name( std::string n ) { default_name = n; }
 
+    virtual void post_init(std::vector<std::string>& columns) { additional_columns = columns; }
+    virtual std::vector<std::string>& get_columns() { return additional_columns; }
 
     int get_rgb_target_channel() 
     {

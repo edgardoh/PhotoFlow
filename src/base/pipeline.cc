@@ -127,6 +127,9 @@ PF::PipelineNode* PF::Pipeline::set_node( Layer* layer, Layer* input_layer )
         delete( node->processor );
       node->processor = PF::PhotoFlow::Instance().
         new_operation_nogui( srcpar->get_type(), NULL );
+      std::cout<<"PF::PipelineNode* PF::Pipeline::set_node() "<<std::endl;
+      if (node->processor->get_par() != NULL) 
+		node->processor->get_par()->post_init(srcpar->get_columns());
     }
 
     if( (node->processor != NULL) &&
