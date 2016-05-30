@@ -577,8 +577,10 @@ void PF::RawDeveloperConfigGUI::do_update()
 
             double temp, tint;
             par2->get_wb( preset_wb );
+#ifndef NDEBUG
             std::cout<<"PF::RawDeveloperConfigGUI::do_update(): preset WB="
                 <<preset_wb[0]<<","<<preset_wb[1]<<","<<preset_wb[2]<<std::endl;
+#endif
             float real_wb[3];
             for( int i = 0; i < 3; i++ ) real_wb[i] = preset_wb[i];
             if( par2->get_wb_mode() != PF::WB_SPOT &&
@@ -589,8 +591,10 @@ void PF::RawDeveloperConfigGUI::do_update()
               real_wb[1] *= wbGreenCorrSlider.get_adjustment()->get_value();
               real_wb[2] *= wbBlueCorrSlider.get_adjustment()->get_value();
             }
+#ifndef NDEBUG
             std::cout<<"PF::RawDeveloperConfigGUI::do_update(): real WB="
                 <<real_wb[0]<<","<<real_wb[1]<<","<<real_wb[2]<<std::endl;
+#endif
             mul2temp( real_wb, &temp, &tint );
 
             ignore_temp_tint_change = true;
@@ -829,9 +833,9 @@ void PF::RawDeveloperConfigGUI::spot_wb( double x, double y )
 		rgb_avg[0] = values[0];
 		rgb_avg[1] = values[1];
 		rgb_avg[2] = values[2];
-
+#ifndef NDEBUG
 		std::cout<<" sampled("<<i<<"): "<<rgb_avg[0]<<" "<<rgb_avg[1]<<" "<<rgb_avg[2]<<std::endl;
-
+#endif
 
     float rgb_out[3] = {0, 0, 0};
     float Lab_in[3] = {0, 0, 0};
@@ -909,9 +913,9 @@ void PF::RawDeveloperConfigGUI::spot_wb( double x, double y )
 		rgb_check[0] = values[0];
 		rgb_check[1] = values[1];
 		rgb_check[2] = values[2];
-
+#ifndef NDEBUG
     std::cout<<" rgb check("<<i<<"): "<<rgb_check[0]<<" "<<rgb_check[1]<<" "<<rgb_check[2]<<std::endl;
-
+#endif
     if( i == 0 ) continue;
     float delta_r = rgb_check[0] - rgb_prev[1];
     float delta_g = rgb_check[1] - rgb_prev[1];

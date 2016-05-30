@@ -27,29 +27,31 @@
 
  */
 
-#ifndef GMIC_GENERIC_UNTILED_CONFIG_DIALOG_HH
-#define GMIC_GENERIC_UNTILED_CONFIG_DIALOG_HH
+#include "pf_filter.hh"
 
-#include <gtkmm.h>
-
-#include "../../operation_config_gui.hh"
-
-
-namespace PF {
-
-  class GmicGenericUntiledConfigGUI: public OperationConfigGUI
-  {
-    Gtk::Button updateButton;
-    Gtk::VBox controlsBox;
-    
-  public:
-    GmicGenericUntiledConfigGUI( Layer* l );
-    
-    void post_init(std::vector<std::string>& columns);
-    void on_update();
-    void open();
-  };
-
+PF::FilterField::FilterField()
+{
+	Init();
 }
 
-#endif
+void PF::FilterField::Init()
+{
+  field_id = 0;
+  field_type = field_type_none;
+  field_name = "";
+  field_description;
+  str_value = "";
+  val_default = 0;
+  val_min = 0;
+  val_max = 0;
+  val_step1 = 0;
+  val_step2 = 0;
+  
+  arg_list.clear();
+}
+
+PF::PFFilter::PFFilter()
+{
+  
+}
+

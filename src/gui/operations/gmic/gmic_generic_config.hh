@@ -27,26 +27,29 @@
 
  */
 
-#ifndef GMIC_GENERIC_TILED_CONFIG_DIALOG_HH
-#define GMIC_GENERIC_TILED_CONFIG_DIALOG_HH
+#ifndef GMIC_GENERIC_CONFIG_DIALOG_HH
+#define GMIC_GENERIC_CONFIG_DIALOG_HH
 
 #include <gtkmm.h>
-
 #include "../../operation_config_gui.hh"
 
 
 namespace PF {
 
-  class GmicGenericTiledConfigGUI: public OperationConfigGUI
+  class GmicGenericConfigGUI: public OperationConfigGUI
   {
+    Gtk::Button updateButton;
     Gtk::VBox controlsBox;
 
   public:
-    GmicGenericTiledConfigGUI( Layer* l );
+    GmicGenericConfigGUI( Layer* l );
     
-    void post_init(std::vector<std::string>& columns);
+    void post_init();
+    void create_controls();
 
-    void create_parameters_gui(std::string filter_arguments, const bool reset_params);
+//    void create_parameters_gui(std::string filter_arguments, const bool reset_params);
+    
+    void on_update();
   };
 
 }

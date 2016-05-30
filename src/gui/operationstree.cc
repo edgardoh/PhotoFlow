@@ -36,7 +36,8 @@
 #include "layerwidget.hh"
 #include "help.hh"
 
-#include "../operations/gmic/gmic_load.hh"
+//#include "../operations/gmic/gmic_load.hh"
+#include "../base/gmic_filter.hh"
 
 /*
 #include "../operations/vips_operation.hh"
@@ -54,20 +55,6 @@
 #include "../gui/operations/clone_config.hh"
 #include "../gui/operations/curves_config.hh"
  */
-
-PF::OperationsTree::OperationsTree( )
-{
-  treeModel = Gtk::TreeStore::create(columns);
-  set_model(treeModel);
-  append_column("Name", get_columns().col_name);
-  set_headers_visible( false );
-}
-
-
-
-PF::OperationsTree::~OperationsTree()
-{
-}
 
 
 PF::OperationsTreeWidget::OperationsTreeWidget()
@@ -186,6 +173,19 @@ static void* collect_class( GType type )
 
 }
 
+PF::OperationsTree::OperationsTree( )
+{
+  treeModel = Gtk::TreeStore::create(columns);
+  set_model(treeModel);
+  append_column("Name", get_columns().col_name);
+  set_headers_visible( false );
+}
+
+
+
+PF::OperationsTree::~OperationsTree()
+{
+}
 
 void PF::OperationsTree::add_op( Glib::ustring name, const std::string nik)
 {
@@ -343,6 +343,9 @@ PF::OperationsTreeDialog::OperationsTreeDialog( Image* img, LayerWidget* lw ):
   //#if !defined(__APPLE__) && !defined(__MACH__)
 #ifndef PF_DISABLE_GMIC
   load_gmic_filters(&op_gmic);
+  
+//  op_gmic.set_tree(PF::PhotoFlow::Instance().get_menu_tree());
+  
 /*  //op_gmic.get_tree().add_op( "G'MIC Interpreter"), "gmic" );
   op_gmic.get_tree().add_op( _("Dream Smoothing"), "gmic_dream_smooth" );
   op_gmic.get_tree().add_op( _("Freaky B&W"), "gmic_freaky_bw" );
@@ -565,16 +568,19 @@ void PF::OperationsTreeDialog::add_layer()
   
   // pass additional data from creation layer dialog
   {
-	  std::vector<std::string> add_columns;
+/*	  std::vector<std::string> add_columns;
 	  add_columns.push_back((*iter)[columns.col_name]+"");
-	  add_columns.push_back((*iter)[columns.col_command]);
-    add_columns.push_back((*iter)[columns.col_arguments]);
-    add_columns.push_back((*iter)[columns.col_phf_arguments]);
-	  
-	  processor->get_par()->post_init(add_columns);
+	  add_columns.push_back((*iter)[columns.col_add_01]);
+    add_columns.push_back((*iter)[columns.col_add_02]);
+    add_columns.push_back((*iter)[columns.col_add_03]);
+	  */
+    PFFilter *pf_filt = (*iter)[columns.col_filter];
+    processor->get_par()->set_pf_filter(pf_filt);
+    processor->get_par()->post_init();
 
 	  if (ui) {
-		  ui->post_init(add_columns);
+      ui->set_pf_filter(pf_filt);
+      ui->post_init();
 	  }
   }
   
@@ -656,40 +662,70 @@ void PF::OperationsTreeDialog::add_layer()
 
 void PF::OperationsTreeDialog::load_gmic_filters(OperationsTreeWidget *op_tree_gmic)
 {
-  GMicLoad menu_entries;
-  Glib::ustring name;
+  GMicFilters gmic_f;
+//  gmic_f.load_filters(op_tree_gmic);
+  gmic_f.load_filters();
+  std::list<GMicDefFilter>&gmic_def_filters = gmic_f.get_def_filters();
+  
   Gtk::Label lbl;
   lbl.set_use_markup(true);
-  
-  menu_entries.load_gmic_filters();
-  
-  std::list<GMicMenuEntry>l_entries = menu_entries.get_menu_entries();
+  Glib::ustring name;
   Gtk::TreeModel::Row menu_levels[10];
+//      Glib::RefPtr<Gtk::TreeStore> tree_model = op_tree.get_tree().get_model();
   Glib::RefPtr<Gtk::TreeStore> tree_model = op_tree_gmic->get_tree().get_model();
   Gtk::TreeModel::Row row;
   OperationsTreeColumns columns;
 
-  for (std::list<GMicMenuEntry>::iterator it=l_entries.begin(); it != l_entries.end(); ++it) {
-    if (!it->get_exclude()) {
-      lbl.set_label(it->get_entry_name());
-      name = lbl.get_text();
+    std::list<GMicDefFilter>::iterator it_gmic;
+    for( it_gmic = gmic_def_filters.begin(); it_gmic != gmic_def_filters.end(); ++it_gmic ) {
+  //    std::list<GMicDefFilter>::iterator it_phf;
+  //    std::cout<<"PF::GMicFilters::load_filters(): name: "<<it_gmic->get_filter().get_name()<<std::endl;
+  //    bool exclude = false;
+ //     GMicDefFilter phf_out;
+ //     if (find_match_entry(phf_def_filters, *it_gmic, phf_out)) {
+  //    for( it_phf = phf_entries.begin(); it_phf != phf_entries.end() && !found; ++it_phf ) {
+  //      if( it_gmic->get_entry_command() == it_phf->get_entry_command() && it_gmic->get_entry_name() == it_phf->get_entry_name()) {
+  //        it_gmic->set_entry_phf_arguments( it_phf->get_entry_arguments() );
+          
+  //        GMicCommand arg_l;
+  //        arg_l.parse_arguments(it_phf->get_entry_arguments());
+  //      std::list<FilterField>out_fields = phf_out.get_filter().get_fields();
+  //        std::list<FilterField>arg_list = arg_l.get_arg_list();
+  /*        std::list<FilterField>::iterator it_phf_field;
+          for( it_phf_field = out_fields.begin(); it_phf_field != out_fields.end(); ++it_phf_field ) {
+            if (it_phf_field->field_description == "phf_process") {
+              if (it_phf_field->str_value == "untiled") {
+                it_gmic->get_filter().set_type("gmic_generic_untiled");
+              }
+            } else if (it_phf_field->field_description == "phf_exclude") {
+              exclude = ( it_phf_field->str_value[0] == '1' );
+            }
+          }
+*/
+  //        found = true;
+  //      }
+  //    if (!exclude) {
+        GmicFilter *out_filter = new GmicFilter();
+        *out_filter = it_gmic->get_filter();
 
-      if (it->get_entry_level() > 0) {
-        row = *(tree_model->append(menu_levels[it->get_entry_level()-1].children()));
-      }
-      else {
-        row = *(tree_model->append());
-      }
-      if (it->get_is_folder()) {
-        menu_levels[it->get_entry_level()] = row;
-      }
+        lbl.set_label(out_filter->get_name());
+        name = lbl.get_text();
 
-      row[columns.col_name] = name;
-      row[columns.col_nickname] = it->get_entry_type();
-      row[columns.col_command] = it->get_entry_command();
-      row[columns.col_arguments] = it->get_entry_arguments();
-      row[columns.col_phf_arguments] = it->get_entry_phf_arguments();
+        if (it_gmic->get_entry_level() > 0) {
+          row = *(tree_model->append(menu_levels[it_gmic->get_entry_level()-1].children()));
+        }
+        else {
+          row = *(tree_model->append());
+        }
+        if (it_gmic->get_is_folder()) {
+          menu_levels[it_gmic->get_entry_level()] = row;
+        }
+
+        row[columns.col_name] = name;
+        row[columns.col_nickname] = out_filter->get_type();
+        row[columns.col_filter] = out_filter;
+      }
     }
-  }
-}
+  
+
 

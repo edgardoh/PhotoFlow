@@ -33,11 +33,11 @@
 PF::WaveletDecomposeConfigGUI::WaveletDecomposeConfigGUI( PF::Layer* layer ):
 OperationConfigGUI( layer, "Wavelet Decompose" ),
 numScales_slider( this, "numScales", _("Scales"), 50, 0, 15, 1, 1, 1),
-currScale_slider( this, "currScale", _("Current Scale"), 50, 0, 16, 1, 1, 1),
+//currScale_slider( this, "currScale", _("Current Scale"), 50, 0, 16, 1, 1, 1),
 blendFactor_slider( this, "blendFactor", _("Blend Factor"), 50, 0., 1., 0.1, 0.05, 1)
 {
   controlsBox.pack_start( numScales_slider, Gtk::PACK_SHRINK );
-  controlsBox.pack_start( currScale_slider, Gtk::PACK_SHRINK );
+//  controlsBox.pack_start( currScale_slider, Gtk::PACK_SHRINK );
   controlsBox.pack_start( blendFactor_slider, Gtk::PACK_SHRINK );
 
   add_widget( controlsBox );

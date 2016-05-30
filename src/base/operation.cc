@@ -31,6 +31,14 @@
 #include "operation.hh"
 #include "layer.hh"
 //#include "../vips/vips_layer.h"
+#include "../operations/draw.hh"
+#include "../gui/widgets/textbox.hh"
+#include "../gui/widgets/checkbox.hh"
+#include "../gui/widgets/slider.hh"
+#include "../gui/widgets/selector.hh"
+#include "../gui/widgets/exposure_slider.hh"
+#include "../gui/widgets/imagebutton.hh"
+#include "../gui/widgets/colorbtn.hh"
 
 int
 vips_layer( int n, VipsImage **out, 
@@ -385,3 +393,186 @@ float PF::vivid_light_f(float nbottom, float ntop)
   //std::cout<<"vivid_light=("<<nbottom*255<<","<<ntop*255<<")="<<nvivid*255.0f<<std::endl;
   return nvivid;
 }
+#if 0
+void PF::OpParBase::create_properties() 
+{
+  
+//  GMicArgumentList arg_list;
+//  GMicArgumentList phf_arg_list;
+  PropertyBase* prop;
+  std::list<FilterField>field_list = get_pf_filter().get_fields();
+  
+//  std::cout<<"PF::OpParBase::create_properties() "<<get_pf_filter().get_name()<<", "<<get_pf_filter().get_type()<<std::endl;
+  
+/*  arg_list.parse_arguments(filter_arguments[2]);
+  std::list<GMicArgument>arg_l = arg_list.get_arg_list();
+  phf_arg_list.parse_arguments(filter_arguments[3]);
+  std::list<GMicArgument>phf_arg_l = phf_arg_list.get_arg_list();
+*/
+/*  for (std::list<GMicArgument>::iterator it=phf_arg_l.begin(); it != phf_arg_l.end(); ++it) {
+    if (it->field_description == "phf_padding") padding = std::stoi(it->str_value);
+  }
+*/
+  for (std::list<FilterField>::iterator it=field_list.begin(); it != field_list.end(); ++it) {
+    
+//    std::cout<<"PF::OpParBase::create_properties()"<<", "<<it->field_type<<", "<<it->field_description<<std::endl;
+    
+    prop = NULL;
+    switch (it->field_type)
+    {
+    case FilterField::field_type_float:
+      prop = new Property<float>(it->field_name, this, it->val_default);
+      break;
+    case FilterField::field_type_int:
+      prop = new Property<int>(it->field_name, this, it->val_default);
+      break;
+    case FilterField::field_type_bool:
+      prop = new Property<bool>(it->field_name, this, it->val_default);
+      break;
+    case FilterField::field_type_button:
+      break;
+    case FilterField::field_type_choise:
+    {
+      int enum_val = 0;
+      std::list<std::pair<std::string, Glib::ustring>>l_arg_l = it->arg_list;
+      prop = new PropertyBase(it->field_name, this );
+      for (std::list<std::pair<std::string, Glib::ustring>>::iterator itl=l_arg_l.begin(); itl != l_arg_l.end(); ++itl) {
+          prop->add_enum_value( enum_val++, (*itl).first, (*itl).second );
+      }
+      prop->set_enum_value((int) it->val_default);
+    }
+      break;
+    case FilterField::field_type_text_multi:
+      prop = new Property<std::string>(it->field_name, this, it->field_description);
+      break;
+    case FilterField::field_type_text_single:
+      prop = new Property<std::string>(it->field_name, this, it->field_description);
+      break;
+    case FilterField::field_type_file:
+      break;
+    case FilterField::field_type_folder:
+      break;
+    case FilterField::field_type_color:
+      prop = new Property<RGBColor>(it->field_name, this, RGBColor(it->val_default, it->val_min, it->val_max));
+      break;
+    case FilterField::field_type_const:
+      prop = new Property<std::string>(it->field_name, this, it->str_value);
+      break;
+    case FilterField::field_type_note:
+      break;
+    case FilterField::field_type_link:
+      break;
+    case FilterField::field_type_separator:
+      break;
+    }
+  }
+
+}
+
+void PF::OperationConfigUI::create_controls(OperationConfigUI *op, std::list<FilterField>& field_list)
+{
+//  GMicArgumentList arg_list;
+//  std::list<FilterField>field_list = get_pf_filter().get_fields();
+
+//  arg_list.parse_arguments(columns[GMicLoad::col_arguments_gmic]);
+//  std::list<GMicArgument>arg_l = arg_list.get_arg_list();
+  Slider *sl;
+  CheckBox *chb;
+  Gtk::Button *btn;
+  Selector *sel;
+  TextBox *txt;
+  Gtk::Label *lbl;
+  Gtk::HSeparator *sep;
+  Gtk::LinkButton *linkb;
+  ColorBtn *clrbtn;
+  std::string description;
+  std::string name;
+  OperationConfigUI *op1;
+  
+  for (std::list<FilterField>::iterator it=field_list.begin(); it != field_list.end(); ++it) {
+    switch (it->field_type)
+    {
+    case FilterField::field_type_float:
+      description = it->field_description;
+      name = it->field_name+"";
+      op1 = op;
+            sl = new Slider( op1, name, description, 
+                (double)it->val_default, (double)it->val_min, (double)it->val_max, 
+                (double)it->val_step1, (double)it->val_step2, (double)1);
+            controlsBox.pack_start( *sl );
+      break;
+    case FilterField::field_type_int:
+/*            sl = new Slider( op, it->field_name, it->field_description, 
+                (double)it->val_default, (double)it->val_min, (double)it->val_max, 
+                (double)it->val_step1, (double)it->val_step2, 1);*/
+            controlsBox.pack_start( *sl );
+            break;
+    case FilterField::field_type_bool:
+      chb = new CheckBox( op, it->field_name, it->field_description, it->val_default );
+      controlsBox.pack_start( *chb );
+      break;
+    case FilterField::field_type_button:
+      btn = new Gtk::Button(it->field_description);
+      controlsBox.pack_start( *btn );
+      break;
+    case FilterField::field_type_choise:
+      sel = new Selector( op, it->field_name, it->field_description, (int)it->val_default );
+      controlsBox.pack_start( *sel );
+      break;
+    case FilterField::field_type_text_multi:
+      txt = new TextBox( op, it->field_name, it->field_description, it->field_description );
+      controlsBox.pack_start( *txt );
+      break;
+    case FilterField::field_type_text_single:
+      txt = new TextBox( op, it->field_name, it->field_description, it->field_description );
+      controlsBox.pack_start( *txt );
+      break;
+    case FilterField::field_type_file:
+      break;
+    case FilterField::field_type_folder:
+      break;
+    case FilterField::field_type_color:
+    {
+#ifdef GTKMM_2
+      Gdk::Color clr;
+      clr.set_rgb(it->val_default, it->val_min, it->val_max);
+//      clrbtn = new Gtk::ColorButton(clr);
+#endif
+#ifdef GTKMM_3
+      Gdk::RGBA clr;
+      clr.set_rgba(it->val_default, it->val_min, it->val_max);
+//      clrbtn = new Gtk::ColorButton(clr);
+#endif
+      clrbtn = new ColorBtn(op, it->field_name, it->field_description, clr);
+      controlsBox.pack_start( *clrbtn );
+      
+//      clrbtn->signal_color_set().
+//          connect( sigc::mem_fun(op, &PF::GmicGenericConfigGUI::on_color_btn_changed) );
+    }
+      break;
+    case FilterField::field_type_const:
+      break;
+    case FilterField::field_type_note:
+      lbl = new Gtk::Label();
+      lbl->set_use_markup(true);
+      lbl->set_label( it->str_value );
+      lbl->set_line_wrap(true);
+      lbl->set_halign(Gtk::Align::ALIGN_START);
+      controlsBox.pack_start( *lbl, Gtk::PACK_SHRINK );
+      break;
+    case FilterField::field_type_link:
+      linkb = new Gtk::LinkButton();
+      linkb->set_label( it->field_description );
+      linkb->set_uri( it->str_value );
+      linkb->set_halign(Gtk::Align::ALIGN_START);
+      controlsBox.pack_start( *linkb );
+      break;
+    case FilterField::field_type_separator:
+      sep = new Gtk::HSeparator();
+      controlsBox.pack_start( *sep );
+      break;
+    }
+  }
+
+}
+#endif

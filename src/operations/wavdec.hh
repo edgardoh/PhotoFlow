@@ -27,58 +27,53 @@
 
  */
 
-#ifndef PF_WAVELET_DECOMPOSE_H
-#define PF_WAVELET_DECOMPOSE_H
+#ifndef PF_WAVDEC_H
+#define PF_WAVDEC_H
 
 
 namespace PF 
 {
 
-class WaveletDecomposePar: public OpParBase
+class WavDecPar: public OpParBase
 {
-  Property<float> numScales, /*currScale,*/ blendFactor;
+  Property<float> numScales, currScale, blendFactor;
   
-//  ProcessorBase* convert2lab;
-//  ProcessorBase* convert2input;
-//  ProcessorBase* wavelet_decompose_algo;
-  ProcessorBase* wav_dec_algo;
+  ProcessorBase* convert2lab;
+  ProcessorBase* convert2input;
+  ProcessorBase* wavdec_algo;
 
   cmsHPROFILE in_profile;
 
 public:
-  WaveletDecomposePar();
+  WavDecPar();
 
   bool has_intensity() { return false; }
   bool needs_caching() { return false; }
 
   float get_numScales() { return (float)numScales.get(); }
   float set_numScales(float a) { numScales.set(a); }
-//  float get_currScale() { return (float)currScale.get(); }
-//  float set_currScale(float a) { currScale.set(a); }
+  float get_currScale() { return (float)currScale.get(); }
+  float set_currScale(float a) { currScale.set(a); }
   float get_blendFactor() { return (float)blendFactor.get(); }
   float set_blendFactor(float a) { blendFactor.set(a); }
 
-/*  VipsImage* build(std::vector<VipsImage*>& in, int first,
-      VipsImage* imap, VipsImage* omap,
-      unsigned int& level);*/
-  
-  std::vector<VipsImage*> build_many(std::vector<VipsImage*>& in, int first,
+  VipsImage* build(std::vector<VipsImage*>& in, int first,
       VipsImage* imap, VipsImage* omap,
       unsigned int& level);
 };
 
-class WaveletDecomposeAlgoPar: public OpParBase
+class WavDecAlgoPar: public OpParBase
 {
-  float numScales, /*currScale,*/ blendFactor;
+  float numScales, currScale, blendFactor;
 
 public:
-  WaveletDecomposeAlgoPar(): OpParBase()
+  WavDecAlgoPar(): OpParBase()
 {
-    numScales/*, currScale*/ = 0;
-    blendFactor = .5f;
+    numScales, currScale = 0;
+    blendFactor = .128f;
 }
   
-//  int get_padding() { return pow(2, get_numScales()); }
+  int get_padding() { return pow(2, get_numScales()); }
 
   int get_maxScales(const int width, const int height)
   {
@@ -93,7 +88,7 @@ public:
 
   /* Function to derive the output area from the input area
    */
-/*  virtual void transform(const Rect* rin, Rect* rout)
+  virtual void transform(const Rect* rin, Rect* rout)
   {
     int pad = get_padding();
     rout->left = rin->left+pad;
@@ -101,11 +96,11 @@ public:
     rout->width = rin->width-pad*2;
     rout->height = rin->height-pad*2;
   }
-*/
+
   /* Function to derive the area to be read from input images,
      based on the requested output area
   */
-/*  virtual void transform_inv(const Rect* rout, Rect* rin)
+  virtual void transform_inv(const Rect* rout, Rect* rin)
   {
     int pad = get_padding();
     rin->left = rout->left-pad;
@@ -113,11 +108,11 @@ public:
     rin->width = rout->width+pad*2;
     rin->height = rout->height+pad*2;
   }
-*/
+
   float get_numScales() { return (float)numScales; }
   float set_numScales(float a) { numScales=a; }
-//  float get_currScale() { return (float)currScale; }
-//  float set_currScale(float a) { currScale=a; }
+  float get_currScale() { return (float)currScale; }
+  float set_currScale(float a) { currScale=a; }
   float get_blendFactor() { return (float)blendFactor; }
   float set_blendFactor(float a) { blendFactor=a; }
 };
@@ -125,37 +120,35 @@ public:
 
 
 template < OP_TEMPLATE_DEF >
-class WaveletDecomposeProc
+class WavDecProc
 {
 public:
   void render(VipsRegion** in, int n, int in_first,
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* out, OpParBase* par)
   {
-//    std::cout<<"WaveletDecomposeProc::render "<<std::endl;
+//    std::cout<<"WavDecProc::render "<<std::endl;
   }
 };
 
 template < OP_TEMPLATE_DEF >
-class WaveletDecomposeAlgoProc
+class WavDecAlgoProc
 {
 public:
   void render(VipsRegion** in, int n, int in_first,
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* out, OpParBase* par)
   {
-//    std::cout<<"WaveletDecomposeProc::render 2"<<std::endl;
+//    std::cout<<"WavDecProc::render 2"<<std::endl;
   }
 };
 
 
 
 template < OP_TEMPLATE_DEF_TYPE_SPEC >
-class WaveletDecomposeAlgoProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
+class WavDecAlgoProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
 {
 private:
-  
-#if 0
 #define DWT_MAX_CHANNELS 4
 //  typedef struct dwt_params_t
 //  {
@@ -174,24 +167,21 @@ private:
     int wd_max_scales;
 #define INDEX_WT_IMAGE(ch, index) (((index)*ch)+c)
 
-#endif
-    
 public:
   void render(VipsRegion** ireg, int n, int in_first,
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* oreg, OpParBase* par)
   {
-#if 0
-    std::cout<<"WaveletDecomposeAlgoProc::render "<<std::endl;
+//    std::cout<<"WavDecAlgoProc::render "<<std::endl;
     
     if( ireg[0] == NULL ) {
-      std::cout<<"WaveletDecomposeAlgoProc::render ireg[0] == NULL"<<std::endl;
+      std::cout<<"WavDecAlgoProc::render ireg[0] == NULL"<<std::endl;
       return;
     }
 
-    WaveletDecomposeAlgoPar* opar = dynamic_cast<WaveletDecomposeAlgoPar*>(par);
+    WavDecAlgoPar* opar = dynamic_cast<WavDecAlgoPar*>(par);
     if( !opar ) {
-      std::cout<<"WaveletDecomposeAlgoProc::render opar == NULL"<<std::endl;
+      std::cout<<"WavDecAlgoProc::render opar == NULL"<<std::endl;
       return;
     }
 
@@ -201,8 +191,8 @@ public:
     Rect *r = &oreg->valid;
     Rect *ir = &ireg[0]->valid;
     
-    std::cout<<"WaveletDecomposeProc::render "<<std::endl;
-    std::cout<<"ir->width="<<ir->width<<",  ir->height="<<ir->height<<", r->width="<<r->width<<",  r->height="<<r->height<<std::endl;
+//    std::cout<<"WavDecProc::render "<<std::endl;
+//    std::cout<<"ir->width="<<ir->width<<",  ir->height="<<ir->height<<", r->width="<<r->width<<",  r->height="<<r->height<<std::endl;
     
     wd_width = ir->width;
     wd_height = ir->height;
@@ -239,7 +229,7 @@ public:
     wd_max_scales = opar->get_maxScales(wd_width, wd_height);
     if (wd_scales > wd_max_scales)
     {
-      std::cout<<"WaveletDecomposeAlgoProc::render: max scale is "<<wd_max_scales<<" for this image preview size"<<std::endl;
+      std::cout<<"WavDecAlgoProc::render: max scale is "<<wd_max_scales<<" for this image preview size"<<std::endl;
     }
 
     dwt_decompose();
@@ -253,13 +243,9 @@ public:
 
     if (pwavdec) free(pwavdec);
     
-#endif
-    
   }
   
 private:
-  
-#if 0
   void dwt_decompose()
   {
   #ifdef _TIME_FFT_
@@ -521,12 +507,12 @@ private:
     }
     
   }
-#endif
+
 
 };
 
 
-ProcessorBase* new_wavelet_decompose();
+ProcessorBase* new_wavdec();
 
 }
 

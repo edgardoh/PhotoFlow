@@ -27,7 +27,8 @@
 
  */
 
-#include "gmic_load.hh"
+#include <iostream>
+#include "gmic_filter.hh"
 #include "../vips/gmic/gmic/src/gmic.h"
 #include "../vips/gmic/gmic/src/gmic_stdlib.h"
 #include "../vips/gmic/gmic/src/CImg.h"
@@ -35,7 +36,7 @@
 using namespace cimg_library;
 
 int get_verbosity_mode() { return 0; }
-
+/*
 PF::GMicArgument::GMicArgument()
 {
 	Init();
@@ -43,11 +44,11 @@ PF::GMicArgument::GMicArgument()
 
 void PF::GMicArgument::Init()
 {
-	arg_id = 0;
-	arg_type = 0;
-	arg_name = "";
-	arg_description = "";
-	arg_value = "";
+	field_id = 0;
+	field_type = 0;
+	field_name = "";
+	field_description = "";
+	str_value = "";
 	arg_default = 0;
 	arg_min = 0;
 	arg_max = 0;
@@ -56,10 +57,13 @@ void PF::GMicArgument::Init()
 	
 	arg_list.clear();
 }
-
-std::string& PF::GMicArgumentList::build_command(std::string& filter_command, OpParBase *par)
+*/
+/*
+std::string PF::GmicFilter::build_command(OpParBase *par)
 {
-  int nbparams = arg_list.size();
+  std::list<FilterField> field_list = get_fields();
+  std::string gmic_command;
+  int nbparams = field_list.size();
   std::string lres;
   switch (get_verbosity_mode()) {
   case 0: case 1: case 2: case 3: lres = "-v -99 -"; break;  // Quiet or Verbose.
@@ -70,19 +74,19 @@ std::string& PF::GMicArgumentList::build_command(std::string& filter_command, Op
   lres += filter_command;
   if (nbparams) {
     lres += ' ';
-    for (std::list<GMicArgument>::iterator it=arg_list.begin(); it != arg_list.end(); ++it) {
-      if ( it->arg_type == arg_type_float || 
-          it->arg_type == arg_type_int || 
-          it->arg_type == arg_type_bool || 
-          it->arg_type == arg_type_choise || 
-          it->arg_type == arg_type_text_multi || 
-          it->arg_type == arg_type_text_single || 
-          it->arg_type == arg_type_file || 
-          it->arg_type == arg_type_folder || 
-          it->arg_type == arg_type_color ) {
-        PropertyBase* prop = par->get_property(it->arg_name);
+    for (std::list<FilterField>::iterator it=field_list.begin(); it != field_list.end(); ++it) {
+      if ( it->field_type == FilterField::field_type_float || 
+          it->field_type == FilterField::field_type_int || 
+          it->field_type == FilterField::field_type_bool || 
+          it->field_type == FilterField::field_type_choise || 
+          it->field_type == FilterField::field_type_text_multi || 
+          it->field_type == FilterField::field_type_text_single || 
+          it->field_type == FilterField::field_type_file || 
+          it->field_type == FilterField::field_type_folder || 
+          it->field_type == FilterField::field_type_color ) {
+        PropertyBase* prop = par->get_property(it->field_name);
         std::string _ss;
-        if (it->arg_type == arg_type_choise)
+        if (it->field_type == FilterField::field_type_choise)
           _ss = prop->get_enum_value_str();
         else
           _ss = prop->get_str();
@@ -101,12 +105,23 @@ std::string& PF::GMicArgumentList::build_command(std::string& filter_command, Op
 
   return gmic_command;
 }
-
-void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
+*/
+PF::GmicFilter::GmicFilter()
 {
-	GMicArgument arg;
+}
+
+void PF::GmicFilter::parse_arguments(std::string& filter_arguments)
+{
+  parse_arguments(filter_arguments, get_fields());
+}
+
+void PF::GmicFilter::parse_arguments(std::string& filter_arguments, std::list<FilterField>& arg_list)
+{
+  FilterField arg;
 	
-	std::string arg_name;
+//  std::cout<<"PF::GmicFilter::parse_arguments(): filter_arguments: "<<filter_arguments<<std::endl;
+  
+	std::string field_name;
 	char temp_buff[20];
     // Count number of filter arguments.
     CImg<char> argument_name(256), _argument_type(32), argument_arg(65536);
@@ -173,16 +188,18 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
 
             sprintf(temp_buff, "arg%i", current_argument);
 
+//            std::cout<<"PF::GmicFilter::parse_arguments(): filter_arguments: "<<filter_arguments<<std::endl;
+            
             arg.Init();
-            arg.arg_id = current_argument;
-            arg.arg_type = arg_type_float;
-            arg.arg_name = temp_buff;
-            arg.arg_description = (argument_name.data() == NULL) ? "": argument_name.data();
-            arg.arg_default = (double)value;
-            arg.arg_min = (double)min_value;
-            arg.arg_max = (double)max_value;
-            arg.arg_step1 = (double)(max_value - min_value)/100;
-            arg.arg_step2 = (double)(max_value - min_value)/20;
+            arg.field_id = current_argument;
+            arg.field_type = FilterField::field_type_float;
+            arg.field_name = temp_buff;
+            arg.field_description = (argument_name.data() == NULL) ? "": argument_name.data();
+            arg.val_default = (double)value;
+            arg.val_min = (double)min_value;
+            arg.val_max = (double)max_value;
+            arg.val_step1 = (double)(max_value - min_value)/100;
+            arg.val_step2 = (double)(max_value - min_value)/20;
             
             arg_list.push_back(arg);
 
@@ -198,15 +215,15 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
             sprintf(temp_buff, "arg%i", current_argument);
 
             arg.Init();
-            arg.arg_id = current_argument;
-            arg.arg_type = arg_type_int;
-            arg.arg_name = temp_buff;
-            arg.arg_description = (argument_name.data() == NULL) ? "": argument_name.data();
-            arg.arg_default = (double)(int)cimg::round(value,1.0f);
-            arg.arg_min = (double)(int)cimg::round(min_value,1.0f);
-            arg.arg_max = (double)(int)cimg::round(max_value,1.0f);
-            arg.arg_step1 = (double)1;
-            arg.arg_step2 = (double)cimg::max(1.0,cimg::round((max_value - min_value)/20,1,1));
+            arg.field_id = current_argument;
+            arg.field_type = FilterField::field_type_int;
+            arg.field_name = temp_buff;
+            arg.field_description = (argument_name.data() == NULL) ? "": argument_name.data();
+            arg.val_default = (double)(int)cimg::round(value,1.0f);
+            arg.val_min = (double)(int)cimg::round(min_value,1.0f);
+            arg.val_max = (double)(int)cimg::round(max_value,1.0f);
+            arg.val_step1 = (double)1;
+            arg.val_step2 = (double)cimg::max(1.0,cimg::round((max_value - min_value)/20,1,1));
             
             arg_list.push_back(arg);
 
@@ -223,15 +240,15 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
             sprintf(temp_buff, "arg%i", current_argument);
 
             arg.Init();
-            arg.arg_id = current_argument;
-            arg.arg_type = arg_type_bool;
-            arg.arg_name = temp_buff;
-            arg.arg_description = (argument_name.data() == NULL) ? "": argument_name.data();
-            arg.arg_default = (double)value;
-            arg.arg_min = 0;
-            arg.arg_max = 0;
-            arg.arg_step1 = 0;
-            arg.arg_step2 = 0;
+            arg.field_id = current_argument;
+            arg.field_type = FilterField::field_type_bool;
+            arg.field_name = temp_buff;
+            arg.field_description = (argument_name.data() == NULL) ? "": argument_name.data();
+            arg.val_default = (double)value;
+            arg.val_min = 0;
+            arg.val_max = 0;
+            arg.val_step1 = 0;
+            arg.val_step2 = 0;
             
             arg_list.push_back(arg);
 
@@ -247,15 +264,15 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
             sprintf(temp_buff, "arg%i", current_argument);
             
             arg.Init();
-            arg.arg_id = current_argument;
-            arg.arg_type = arg_type_button;
-            arg.arg_name = temp_buff;
-            arg.arg_description = (argument_name.data() == NULL) ? "": argument_name.data();
-            arg.arg_default = 0;
-            arg.arg_min = 0;
-            arg.arg_max = 0;
-            arg.arg_step1 = 0;
-            arg.arg_step2 = 0;
+            arg.field_id = current_argument;
+            arg.field_type = FilterField::field_type_button;
+            arg.field_name = temp_buff;
+            arg.field_description = (argument_name.data() == NULL) ? "": argument_name.data();
+            arg.val_default = 0;
+            arg.val_min = 0;
+            arg.val_max = 0;
+            arg.val_step1 = 0;
+            arg.val_step2 = 0;
             
             arg_list.push_back(arg);
 
@@ -275,15 +292,15 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
             if (cimg_sscanf(entries,"%u",&value)==1)
               entries+=cimg_snprintf(s_entry,s_entry.width(),"%u",value) + 1;
       	  arg.Init();
-            arg.arg_id = current_argument;
-            arg.arg_type = arg_type_choise;
-            arg.arg_name = temp_buff;
-            arg.arg_description = (argument_name.data() == NULL) ? "": argument_name.data();
-            arg.arg_default = value;
-            arg.arg_min = 0;
-            arg.arg_max = 0;
-            arg.arg_step1 = 0;
-            arg.arg_step2 = 0;
+            arg.field_id = current_argument;
+            arg.field_type = FilterField::field_type_choise;
+            arg.field_name = temp_buff;
+            arg.field_description = (argument_name.data() == NULL) ? "": argument_name.data();
+            arg.val_default = value;
+            arg.val_min = 0;
+            arg.val_max = 0;
+            arg.val_step1 = 0;
+            arg.val_step2 = 0;
             
             int num_entries = 0;
             while (*entries) {
@@ -321,15 +338,15 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
               for (char *p = argument_arg; *p; ++p) if (*p==gmic_dquote) *p='\"';
               
               arg.Init();
-              arg.arg_id = current_argument;
-              arg.arg_type = arg_type_text_multi;
-              arg.arg_name = temp_buff;
-              arg.arg_description = (argument_arg.data() == NULL) ? "": argument_arg.data();
-              arg.arg_default = 0;
-              arg.arg_min = 0;
-              arg.arg_max = 0;
-              arg.arg_step1 = 0;
-              arg.arg_step2 = 0;
+              arg.field_id = current_argument;
+              arg.field_type = FilterField::field_type_text_multi;
+              arg.field_name = temp_buff;
+              arg.field_description = (argument_arg.data() == NULL) ? "": argument_arg.data();
+              arg.val_default = 0;
+              arg.val_min = 0;
+              arg.val_max = 0;
+              arg.val_step1 = 0;
+              arg.val_step2 = 0;
               
               arg_list.push_back(arg);
 
@@ -345,15 +362,15 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
               sprintf(temp_buff, "arg%i", current_argument);
 
               arg.Init();
-              arg.arg_id = current_argument;
-              arg.arg_type = arg_type_text_single;
-              arg.arg_name = temp_buff;
-              arg.arg_description = (argument_arg.data() == NULL) ? "": argument_arg.data();
-              arg.arg_default = 0;
-              arg.arg_min = 0;
-              arg.arg_max = 0;
-              arg.arg_step1 = 0;
-              arg.arg_step2 = 0;
+              arg.field_id = current_argument;
+              arg.field_type = FilterField::field_type_text_single;
+              arg.field_name = temp_buff;
+              arg.field_description = (argument_arg.data() == NULL) ? "": argument_arg.data();
+              arg.val_default = 0;
+              arg.val_min = 0;
+              arg.val_max = 0;
+              arg.val_step1 = 0;
+              arg.val_step2 = 0;
               
               arg_list.push_back(arg);
             }
@@ -372,16 +389,16 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
             sprintf(temp_buff, "arg%i", current_argument);
             
             arg.Init();
-            arg.arg_id = current_argument;
-            arg.arg_type = cimg::uncase(argument_type[1])=='i'? arg_type_file: arg_type_folder;
-            arg.arg_name = temp_buff;
-            arg.arg_description = (argument_name.data() == NULL) ? "": argument_name.data();
-            arg.arg_value = (value == NULL) ? "": value;
-            arg.arg_default = 0;
-            arg.arg_min = 0;
-            arg.arg_max = 0;
-            arg.arg_step1 = 0;
-            arg.arg_step2 = 0;
+            arg.field_id = current_argument;
+            arg.field_type = cimg::uncase(argument_type[1])=='i'? FilterField::field_type_file: FilterField::field_type_folder;
+            arg.field_name = temp_buff;
+            arg.field_description = (argument_name.data() == NULL) ? "": argument_name.data();
+            arg.str_value = (value == NULL) ? "": value;
+            arg.val_default = 0;
+            arg.val_min = 0;
+            arg.val_max = 0;
+            arg.val_step1 = 0;
+            arg.val_step2 = 0;
             
             arg_list.push_back(arg);
 
@@ -401,16 +418,16 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
             sprintf(temp_buff, "arg%i", current_argument);
             
             arg.Init();
-            arg.arg_id = current_argument;
-            arg.arg_type = arg_type_color;
-            arg.arg_name = temp_buff;
-            arg.arg_description = (argument_name.data() == NULL) ? "": argument_name.data();
-            arg.arg_value = "";
-            arg.arg_default = red;
-            arg.arg_min = green;
-            arg.arg_max = blue;
-            arg.arg_step1 = 0;
-            arg.arg_step2 = 0;
+            arg.field_id = current_argument;
+            arg.field_type = FilterField::field_type_color;
+            arg.field_name = temp_buff;
+            arg.field_description = (argument_name.data() == NULL) ? "": argument_name.data();
+            arg.str_value = "";
+            arg.val_default = red;
+            arg.val_min = green;
+            arg.val_max = blue;
+            arg.val_step1 = 0;
+            arg.val_step2 = 0;
             
             arg_list.push_back(arg);
 
@@ -424,16 +441,16 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
             sprintf(temp_buff, "arg%i", current_argument);
             
             arg.Init();
-            arg.arg_id = current_argument;
-            arg.arg_type = arg_type_const;
-            arg.arg_name = temp_buff;
-            arg.arg_description = (argument_name.data() == NULL) ? "": argument_name.data();
-            arg.arg_value = (value == NULL) ? "": value;
-            arg.arg_default = 0;
-            arg.arg_min = 0;
-            arg.arg_max = 0;
-            arg.arg_step1 = 0;
-            arg.arg_step2 = 0;
+            arg.field_id = current_argument;
+            arg.field_type = FilterField::field_type_const;
+            arg.field_name = temp_buff;
+            arg.field_description = (argument_name.data() == NULL) ? "": argument_name.data();
+            arg.str_value = (value == NULL) ? "": value;
+            arg.val_default = 0;
+            arg.val_min = 0;
+            arg.val_max = 0;
+            arg.val_step1 = 0;
+            arg.val_step2 = 0;
             
             arg_list.push_back(arg);
 
@@ -449,20 +466,20 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
             sprintf(temp_buff, "arg%i", current_argument);
             
             arg.Init();
-            arg.arg_id = current_argument;
-            arg.arg_type = arg_type_note;
-            arg.arg_name = temp_buff;
-            arg.arg_description = (argument_arg.data() == NULL) ? "": argument_arg.data();
-            arg.arg_value = "";
-            arg.arg_default = 0;
-            arg.arg_min = 0;
-            arg.arg_max = 0;
-            arg.arg_step1 = 0;
-            arg.arg_step2 = 0;
+            arg.field_id = current_argument;
+            arg.field_type = FilterField::field_type_note;
+            arg.field_name = temp_buff;
+            arg.field_description = "";
+            arg.str_value = (argument_arg.data() == NULL) ? "": argument_arg.data();
+            arg.val_default = 0;
+            arg.val_min = 0;
+            arg.val_max = 0;
+            arg.val_step1 = 0;
+            arg.val_step2 = 0;
             
             arg_list.push_back(arg);
 
-            found_valid_argument = true;
+            found_valid_argument = true; ++current_argument;
           }
 
           // Check for a link.
@@ -482,20 +499,20 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
             sprintf(temp_buff, "arg%i", current_argument);
             
             arg.Init();
-            arg.arg_id = current_argument;
-            arg.arg_type = arg_type_link;
-            arg.arg_name = temp_buff;
-            arg.arg_description = (label.data() == NULL) ? "": label.data();
-            arg.arg_value = (url.data() == NULL) ? "": url.data();
-            arg.arg_default = 0;
-            arg.arg_min = 0;
-            arg.arg_max = 0;
-            arg.arg_step1 = 0;
-            arg.arg_step2 = 0;
+            arg.field_id = current_argument;
+            arg.field_type = FilterField::field_type_link;
+            arg.field_name = temp_buff;
+            arg.field_description = (label.data() == NULL) ? "": label.data();
+            arg.str_value = (url.data() == NULL) ? "": url.data();
+            arg.val_default = 0;
+            arg.val_min = 0;
+            arg.val_max = 0;
+            arg.val_step1 = 0;
+            arg.val_step2 = 0;
             
             arg_list.push_back(arg);
 
-            found_valid_argument = true;
+            found_valid_argument = true; ++current_argument;
           }
 
           // Check for an horizontal separator.
@@ -503,20 +520,20 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
               sprintf(temp_buff, "arg%i", current_argument);
               
               arg.Init();
-              arg.arg_id = current_argument;
-              arg.arg_type = arg_type_separator;
-              arg.arg_name = temp_buff;
-              arg.arg_description = "";
-              arg.arg_value = "";
-              arg.arg_default = 0;
-              arg.arg_min = 0;
-              arg.arg_max = 0;
-              arg.arg_step1 = 0;
-              arg.arg_step2 = 0;
+              arg.field_id = current_argument;
+              arg.field_type = FilterField::field_type_separator;
+              arg.field_name = temp_buff;
+              arg.field_description = "";
+              arg.str_value = "";
+              arg.val_default = 0;
+              arg.val_min = 0;
+              arg.val_max = 0;
+              arg.val_step1 = 0;
+              arg.val_step2 = 0;
               
               arg_list.push_back(arg);
 
-            found_valid_argument = true;
+            found_valid_argument = true; ++current_argument;
           }
 
           if (!found_valid_argument) {
@@ -531,14 +548,14 @@ void PF::GMicArgumentList::parse_arguments(std::string& filter_arguments)
 
 }
 
-PF::GMicMenuEntry::GMicMenuEntry()
+PF::GMicDefFilter::GMicDefFilter()
 {
 	is_folder = false;
 	entry_level = 0;
-  exclude = false;
+//  exclude = false;
 }
-
-PF::GMicMenuEntry::GMicMenuEntry(bool eis_folder, int e_level, std::string& e_type, Glib::ustring& e_name, std::string& e_command, std::string& e_arguments)
+/*
+PF::GMicDefFilter::GMicDefFilter(bool eis_folder, int e_level, std::string& e_type, Glib::ustring& e_name, std::string& e_command, std::string& e_arguments)
 {
 	is_folder = eis_folder;
 	entry_level = e_level;
@@ -548,7 +565,40 @@ PF::GMicMenuEntry::GMicMenuEntry(bool eis_folder, int e_level, std::string& e_ty
   entry_arguments = e_arguments;
   exclude = false;
 }
-
+*/
+void PF::GMicFilters::get_def_filenames(char const* def_filename, std::string& out_def_filename)
+{
+  char fname[500]; fname[0] = 0;
+#if defined(WIN32) || defined(__MINGW32__) || defined(__MINGW64__)
+  snprintf( fname, 499, "%s\\%s", PF::PhotoFlow::Instance().get_base_dir().c_str(), def_filename );
+  std::cout<<"G'MIC custom commands file: "<<fname<<std::endl;
+  struct stat buffer;   
+  int stat_result = stat( fname, &buffer );
+  if( stat_result != 0 ) {
+    fname[0] = 0;
+  }
+#elif defined(__APPLE__) && defined (__MACH__)
+  snprintf( fname, 499, "%s/%s", PF::PhotoFlow::Instance().get_data_dir().c_str(), def_filename );
+  std::cout<<"G'MIC custom commands file: "<<fname<<std::endl;
+  struct stat buffer;
+  int stat_result = stat( fname, &buffer );
+  if( stat_result != 0 ) {
+    fname[0] = 0;
+  }
+#else
+  if( getenv("HOME") ) {
+    snprintf( fname, 499, "%s/share/photoflow/%s", INSTALL_PREFIX, def_filename );
+    std::cout<<"G'MIC custom commands file: "<<fname<<std::endl;
+    struct stat buffer;   
+    int stat_result = stat( fname, &buffer );
+    if( stat_result != 0 ) {
+      fname[0] = 0;
+    }
+  }
+#endif
+  
+  out_def_filename = fname;
+}
 
 CImg<char> get_locale() {
   CImg<char> locale(16);
@@ -568,57 +618,167 @@ unsigned int get_current_filter() {
   return current_filter;
 }
 
-void PF::GMicLoad::add_menu_entry(std::list<GMicMenuEntry>& menu_entries, bool is_folder, int entry_level, 
-                                    std::string& entry_type, Glib::ustring& entry_name, 
-                                    std::string& entry_command, std::string& entry_arguments) { 
-  GMicMenuEntry entry(is_folder, entry_level, entry_type, entry_name, entry_command, entry_arguments);
-  menu_entries.push_back(entry);
+PF::GMicFilters::GMicFilters()
+{
+//  get_def_filenames("gmic_def.gmic", gmic_def_filename);
+//  get_def_filenames("phf_def.gmic", phf_def_filename);
 }
 
-void PF::GMicLoad::load_gmic_filters()
+void PF::GMicFilters::add_menu_entry(std::list<GMicDefFilter>& menu_entries, bool is_folder, int entry_level, 
+                                    std::string& entry_type, Glib::ustring& entry_name, 
+                                    std::string& entry_command, std::string& entry_arguments) { 
+//  GMicDefFilter entry(is_folder, entry_level, entry_type, entry_name, entry_command, entry_arguments);
+  GMicDefFilter filter;
+  
+//  std::cout<<"PF::GMicFilters::add_menu_entry(): entry_command: "<<entry_command<<std::endl;
+  filter.set_is_folder(is_folder);
+  filter.set_entry_level(entry_level);
+  filter.get_filter().set_command(entry_command);
+  filter.get_filter().set_name(entry_name);
+  filter.get_filter().set_type(entry_type);
+  
+  filter.get_filter().parse_arguments(entry_arguments);
+  
+  menu_entries.push_back(filter);
+}
+
+// search for a matching filter for in into def_filters
+bool PF::GMicFilters::find_match_entry(std::list<GMicDefFilter>& def_filters, GMicDefFilter& in, GMicDefFilter& out)
 {
-  std::string file_name = "/home/edgardo/PhotoFlow/src/vips/gmic/gmic/src/gmic_def.gmic";
-  gmic_entries.clear();
+  bool found = false;
+  std::list<GMicDefFilter>::iterator it;
   
-  parse_gmic_filters(gmic_entries, file_name);
+  for( it = def_filters.begin(); it != def_filters.end() && !found; ++it ) {
+    if( it->get_filter().get_command() == in.get_filter().get_command() && it->get_filter().get_name() == in.get_filter().get_name()) {
+      out = *it;
+      found = true;
+    }
+  }
   
-  file_name = "/home/edgardo/PhotoFlow/src/vips/gmic/gmic/src/phf_def.gmic";
-  phf_entries.clear();
+  return found;
+}
+
+void PF::GMicFilters::load_filters()
+{
   
-  parse_gmic_filters(phf_entries, file_name);
+  std::string gmic_def_filename;
+      std::string phf_def_filename;
+      std::list<GMicDefFilter> gmic_def_filters;
+      std::list<GMicDefFilter> phf_def_filters;
+      
+      def_filters.clear();
+      
+      // get full path for definition files
+  get_def_filenames("gmic_def.gmic", gmic_def_filename);
+  get_def_filenames("phf_def.gmic", phf_def_filename);
   
-  // add PhF entries to the GMIC menu
-  std::list<GMicMenuEntry>::iterator it_gmic;
-  for( it_gmic = gmic_entries.begin(); it_gmic != gmic_entries.end(); ++it_gmic ) {
-    std::list<GMicMenuEntry>::iterator it_phf;
-    bool found = false;
-    for( it_phf = phf_entries.begin(); it_phf != phf_entries.end() && !found; ++it_phf ) {
-      if( it_gmic->get_entry_command() == it_phf->get_entry_command() && it_gmic->get_entry_name() == it_phf->get_entry_name()) {
-        it_gmic->set_entry_phf_arguments( it_phf->get_entry_arguments() );
-        
-        GMicArgumentList arg_l;
-        arg_l.parse_arguments(it_phf->get_entry_arguments());
-        
-        std::list<GMicArgument>arg_list = arg_l.get_arg_list();
-        std::list<GMicArgument>::iterator it_phf_arg;
-        for( it_phf_arg = arg_list.begin(); it_phf_arg != arg_list.end(); ++it_phf_arg ) {
-          if (it_phf_arg->arg_description == "phf_process") {
-            if (it_phf_arg->arg_value == "untiled") {
-              it_gmic->set_entry_type("gmic_generic_untiled");
+//  gmic_def_filters.clear();
+  
+  // load GMIC filters
+  parse_def_file(gmic_def_filename, gmic_def_filters);
+  
+//  phf_def_filters.clear();
+  
+  // load custom PhF commands for GMIC filters
+  parse_def_file(phf_def_filename, phf_def_filters);
+  
+  // merge G'MIC filter def with custom PhF and build the operations tree
+    std::list<GMicDefFilter>::iterator it_gmic;
+    for( it_gmic = gmic_def_filters.begin(); it_gmic != gmic_def_filters.end(); ++it_gmic ) {
+  //    std::list<GMicDefFilter>::iterator it_phf;
+  //    std::cout<<"PF::GMicFilters::load_filters(): name: "<<it_gmic->get_filter().get_name()<<std::endl;
+      bool exclude = false;
+      GMicDefFilter phf_out;
+      if (find_match_entry(phf_def_filters, *it_gmic, phf_out)) {
+  //    for( it_phf = phf_entries.begin(); it_phf != phf_entries.end() && !found; ++it_phf ) {
+  //      if( it_gmic->get_entry_command() == it_phf->get_entry_command() && it_gmic->get_entry_name() == it_phf->get_entry_name()) {
+  //        it_gmic->set_entry_phf_arguments( it_phf->get_entry_arguments() );
+          
+  //        GMicCommand arg_l;
+  //        arg_l.parse_arguments(it_phf->get_entry_arguments());
+        std::list<FilterField>out_fields = phf_out.get_filter().get_fields();
+  //        std::list<FilterField>arg_list = arg_l.get_arg_list();
+          std::list<FilterField>::iterator it_phf_field;
+          for( it_phf_field = out_fields.begin(); it_phf_field != out_fields.end(); ++it_phf_field ) {
+            if (it_phf_field->field_description == "phf_process") {
+              if (it_phf_field->str_value == "untiled") {
+                it_gmic->get_filter().set_type("gmic_generic_untiled");
+              }
+            } else if (it_phf_field->field_description == "phf_exclude") {
+              exclude = ( it_phf_field->str_value[0] == '1' );
             }
-          } else if (it_phf_arg->arg_description == "phf_exclude") {
-            it_gmic->set_exclude( it_phf_arg->arg_value[0] == '1' );
+            else {
+ //             it_gmic->get_filter().get_fields().push_back(*it_phf_field);
+            }
+          }
+
+  //        found = true;
+        }
+      if (!exclude) {
+        def_filters.push_back(*it_gmic);
+      }
+    }
+/*  std::list<GMicDefFilter>::iterator it_gmic;
+  for( it_gmic = gmic_def_filters.begin(); it_gmic != gmic_def_filters.end(); ++it_gmic ) {
+//    std::list<GMicDefFilter>::iterator it_phf;
+//    std::cout<<"PF::GMicFilters::load_filters(): name: "<<it_gmic->get_filter().get_name()<<std::endl;
+    bool exclude = false;
+    GMicDefFilter phf_out;
+    if (find_match_entry(phf_def_filters, *it_gmic, phf_out)) {
+//    for( it_phf = phf_entries.begin(); it_phf != phf_entries.end() && !found; ++it_phf ) {
+//      if( it_gmic->get_entry_command() == it_phf->get_entry_command() && it_gmic->get_entry_name() == it_phf->get_entry_name()) {
+//        it_gmic->set_entry_phf_arguments( it_phf->get_entry_arguments() );
+        
+//        GMicCommand arg_l;
+//        arg_l.parse_arguments(it_phf->get_entry_arguments());
+      std::list<FilterField>out_fields = phf_out.get_filter().get_fields();
+//        std::list<FilterField>arg_list = arg_l.get_arg_list();
+        std::list<FilterField>::iterator it_phf_field;
+        for( it_phf_field = out_fields.begin(); it_phf_field != out_fields.end(); ++it_phf_field ) {
+          if (it_phf_field->field_description == "phf_process") {
+            if (it_phf_field->str_value == "untiled") {
+              it_gmic->get_filter().set_type("gmic_generic_untiled");
+            }
+          } else if (it_phf_field->field_description == "phf_exclude") {
+            exclude = ( it_phf_field->str_value[0] == '1' );
           }
         }
 
-        found = true;
+//        found = true;
       }
+    if (!exclude) {
+      Gtk::Label lbl;
+      lbl.set_use_markup(true);
+      Glib::ustring name;
+      Gtk::TreeModel::Row menu_levels[10];
+//      Glib::RefPtr<Gtk::TreeStore> tree_model = op_tree.get_tree().get_model();
+      Glib::RefPtr<Gtk::TreeStore> tree_model = op_tree.get_model();
+      Gtk::TreeModel::Row row;
+      OperationsTreeColumns columns;
+      GmicFilter out_filter = it_gmic->get_filter();
+
+      lbl.set_label(out_filter.get_name());
+      name = lbl.get_text();
+
+      if (it_gmic->get_entry_level() > 0) {
+        row = *(tree_model->append(menu_levels[it_gmic->get_entry_level()-1].children()));
+      }
+      else {
+        row = *(tree_model->append());
+      }
+      if (it_gmic->get_is_folder()) {
+        menu_levels[it_gmic->get_entry_level()] = row;
+      }
+
+      row[columns.col_name] = name;
+      row[columns.col_nickname] = out_filter.get_type();
+      row[columns.col_filter] = out_filter;
     }
   }
-
+*/
 }
 
-void PF::GMicLoad::parse_gmic_filters(std::list<GMicMenuEntry>& menu_entries, std::string& file_name)
+void PF::GMicFilters::parse_def_file(std::string& file_name, std::list<GMicDefFilter>& def_filters)
 {
   CImg<char> gmic_additional_commands;           // The buffer of additional G'MIC command implementations.
   CImgList<char> gmic_entries;                   // The list of recognized G'MIC menu entries.
@@ -665,7 +825,7 @@ void PF::GMicLoad::parse_gmic_filters(std::list<GMicMenuEntry>& menu_entries, st
   cimglist_for(sources,l) {
     const char *s_basename = gmic::basename(sources[l]);
     
-    if (s_basename) std::cout<<"PF::GMicLoad::load_gmic_filters() Read local source files: "<<s_basename<<std::endl;
+    if (s_basename) std::cout<<"PF::GMicFilters::load_gmic_filters() Read local source files: "<<s_basename<<std::endl;
     
     CImg<char> _s_basename = CImg<char>::string(s_basename);
     cimg::strwindows_reserved(_s_basename);
@@ -678,10 +838,10 @@ void PF::GMicLoad::parse_gmic_filters(std::list<GMicMenuEntry>& menu_entries, st
       cimg_snprintf(filename,filename.width(),"%s",
                     sources[l].data());
       
-      std::cout<<"PF::GMicLoad::load_gmic_filters() Read local source file: "<<filename<<std::endl;
+      std::cout<<"PF::GMicFilters::load_gmic_filters() Read local source file: "<<filename<<std::endl;
     }
     
-    std::cout<<"PF::GMicLoad::load_gmic_filters() try to open file "<<filename<<std::endl;
+    std::cout<<"PF::GMicFilters::load_gmic_filters() try to open file "<<filename<<std::endl;
     
     const unsigned int omode = cimg::exception_mode();
     try {
@@ -689,7 +849,7 @@ void PF::GMicLoad::parse_gmic_filters(std::list<GMicMenuEntry>& menu_entries, st
       bool add_code_separator = false;
       cimg::exception_mode(0);
       if (sources[l].back()==1) { // Overload default, add more checking.
-        std::cout<<"PF::GMicLoad::load_gmic_filters() if (sources[l].back()==1) "<<std::endl;
+        std::cout<<"PF::GMicFilters::load_gmic_filters() if (sources[l].back()==1) "<<std::endl;
 
         
         com.load_raw(filename);
@@ -705,7 +865,7 @@ void PF::GMicLoad::parse_gmic_filters(std::list<GMicMenuEntry>& menu_entries, st
           add_code_separator = true;
         }
       } else {
-        std::cout<<"PF::GMicLoad::load_gmic_filters() else (sources[l].back()==1) "<<std::endl;
+        std::cout<<"PF::GMicFilters::load_gmic_filters() else (sources[l].back()==1) "<<std::endl;
         
         com.load_raw(filename);
         const char *const ecom = com.end();
@@ -717,7 +877,7 @@ void PF::GMicLoad::parse_gmic_filters(std::list<GMicMenuEntry>& menu_entries, st
       if (add_code_separator)
         CImg<char>::string("\n#@gimp ________\n",false).unroll('y').move_to(_gmic_additional_commands);
     } catch(...) {
-      std::cout<<"PF::GMicLoad::load_gmic_filters() Filter file not found "<<std::endl;
+      std::cout<<"PF::GMicFilters::load_gmic_filters() Filter file not found "<<std::endl;
       
       if (get_verbosity_mode()>1)
         std::fprintf(cimg::output(),
@@ -773,7 +933,7 @@ void PF::GMicLoad::parse_gmic_filters(std::list<GMicMenuEntry>& menu_entries, st
   	} \
   	 \
   	 \
-  add_menu_entry(menu_entries, is_folder, prev_menu_level, entry_type, entry_name, entry_command, entry_arguments); \
+  add_menu_entry(def_filters, is_folder, prev_menu_level, entry_type, entry_name, entry_command, entry_arguments); \
   gmic_entries.assign(1); \
   gmic_commands.assign(1); \
   gmic_arguments.assign(1); \
@@ -819,14 +979,14 @@ void PF::GMicLoad::parse_gmic_filters(std::list<GMicMenuEntry>& menu_entries, st
         	  CImg<char>::string(nentry).move_to(gmic_1stlevel_names);
           } else { // 1st-level folder.
             bool is_duplicate = false;
-            cimglist_for(gmic_1stlevel_names,l)
-              if (!std::strcmp(nentry,gmic_1stlevel_names[l].data())) { // Folder name is a duplicate.
+//            cimglist_for(gmic_1stlevel_names,l)
+//              if (!std::strcmp(nentry,gmic_1stlevel_names[l].data())) { // Folder name is a duplicate.
 /*                if (gtk_tree_model_get_iter_from_string(GTK_TREE_MODEL(tree_view_store),&parent[level],
                                                         gmic_1stlevel_entries[l].data())) {
                   is_duplicate = true;
                   break;
                 }*/
-              }
+//              }
 
             // Detect if filter is in 'Testing/' (won't be counted in number of filters).
     //        gtk_label_set_markup(GTK_LABEL(markup2ascii),nentry);

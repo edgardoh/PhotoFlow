@@ -27,21 +27,23 @@
 
  */
 
-#ifndef CIMG_LOAD_H
-#define CIMG_LOAD_H
+#ifndef GMIC_FILTER_HH
+#define GMIC_FILTER_HH
 
 #include <string>
-#include "../base/operation.hh"
 #include <list>
 #include <vector>
 #include <sigc++/sigc++.h>
 #include <gtkmm.h>
+#include "pf_filter.hh"
+//#include "operation.hh"
+//#include "../gui/operationstree.hh"
 
 
 namespace PF 
 {
 
-	typedef enum _gmic_arg_type_t
+/*	typedef enum _gmic_arg_type_t
 	{
 		arg_type_float = 1,
 		arg_type_int = 2,
@@ -79,43 +81,61 @@ namespace PF
 	
 		void Init();
 	};
-	
-	class GMicArgumentList
+	*/
+/*	class GMicCommand
 	{
-		std::list<GMicArgument> arg_list;
-		std::string gmic_command;
-		
 	public:
-		GMicArgumentList() { }
+		GMicCommand() { }
 	
-		std::list<GMicArgument>& get_arg_list() { return arg_list; }
-		void parse_arguments(std::string& filter_arguments);
-		std::string& build_command(std::string& filter_command, OpParBase* par);
+		std::string build_command(std::string& filter_command, std::list<FilterField>& field_list, OpParBase *par);
 
 	};
+*/
+  class GmicFilter: public PFFilter
+  {
+	  std::string filter_command;
+	  
+    void parse_arguments(std::string& filter_arguments, std::list<FilterField>& arg_list);
 
-	class GMicMenuEntry
+  public:
+	  GmicFilter();
+//	  virtual ~GmicFilter() {}
+	  
+    void set_command(std::string s) { filter_command = s; }
+    std::string get_command() { return filter_command; }
+  
+    void parse_arguments(std::string& filter_arguments);
+//    std::string build_command(OpParBase *par);
+
+  };
+  
+	class GMicDefFilter
 	{
 		bool is_folder;
 		int entry_level;
-		std::string entry_type;
-		Glib::ustring entry_name;
-		std::string entry_command;
-    std::string entry_arguments;
-    std::string entry_phf_arguments;
-    bool exclude;
+		GmicFilter filter;
+//		std::string entry_type;
+//		Glib::ustring entry_name;
+//		std::string entry_command;
+//    std::string entry_arguments;
+//    std::string entry_phf_arguments;
+//    bool exclude;
     
 	public:
-		GMicMenuEntry();
-		GMicMenuEntry(bool is_folder, int entry_level, std::string& e_type, Glib::ustring& e_name, std::string& e_command, std::string& e_arguments);
+		GMicDefFilter();
+		virtual ~GMicDefFilter() {}
+//		GMicDefFilter(bool is_folder, int entry_level, std::string& e_type, Glib::ustring& e_name, std::string& e_command, std::string& e_arguments);
 	
 		bool get_is_folder() { return is_folder; }
 		void set_is_folder(bool s) { is_folder = s; }
-		int get_entry_level() { return entry_level; }
-		void set_entry_level(int s) { entry_level = s; }
-		std::string& get_entry_type() { return entry_type; }
-		void set_entry_type(std::string s) { entry_type = s; }
-		Glib::ustring& get_entry_name() { return entry_name; }
+    int get_entry_level() { return entry_level; }
+    void set_entry_level(int s) { entry_level = s; }
+    GmicFilter& get_filter() { return filter; }
+    void set_filter(GmicFilter& s) { filter = s; }
+    
+//		std::string& get_entry_type() { return entry_type; }
+//		void set_entry_type(std::string s) { entry_type = s; }
+/*		Glib::ustring& get_entry_name() { return entry_name; }
 		void set_entry_name(Glib::ustring& s) { entry_name = s; }
 		std::string& get_entry_command() { return entry_command; }
 		void set_entry_command(std::string& s) { entry_command = s; }
@@ -126,23 +146,40 @@ namespace PF
     
     bool get_exclude() { return exclude; }
     void set_exclude(bool s) { exclude = s; }
-
+*/
 	};
 
-	class GMicLoad
+	class GMicFilters
 	{
-		std::list<GMicMenuEntry> gmic_entries;
-		std::list<GMicMenuEntry> phf_entries;
+	  std::list<GMicDefFilter> def_filters;
+/*	  std::string gmic_def_filename;
+	  std::string phf_def_filename;
+	  
+		std::list<GMicDefFilter> gmic_entries;
+		std::list<GMicDefFilter> phf_entries;
+		*/
+    void get_def_filenames(char const* def_filename, std::string& out_def_filename);
+		void parse_def_file(std::string& file_name, std::list<GMicDefFilter>& def_filters);
 		
-		void parse_gmic_filters(std::list<GMicMenuEntry>& menu_entries, std::string& file_name);
-		void add_menu_entry(std::list<GMicMenuEntry>& menu_entries, bool is_folder, int entry_level, 
+    bool find_match_entry(std::list<GMicDefFilter>& def_filters, GMicDefFilter& in, GMicDefFilter& out);
+
+		void add_menu_entry(std::list<GMicDefFilter>& menu_entries, bool is_folder, int entry_level, 
                           std::string& entry_type, Glib::ustring& entry_name, 
                           std::string& entry_command, std::string& entry_arguments);
+                          
 	public:
-	  GMicLoad() { }
+/*    enum ColEntries {
+      col_name = 0,
+      col_command = 1,
+      col_arguments_gmic = 2, 
+      col_arguments_phf = 3
+    };
+      */
+	  GMicFilters();
+	  virtual ~GMicFilters() {}
 	
-	  void load_gmic_filters();
-	  std::list<GMicMenuEntry>& get_menu_entries() { return gmic_entries; }
+	  void load_filters();
+	  std::list<GMicDefFilter>& get_def_filters() { return def_filters; }
 
 	};
 

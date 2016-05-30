@@ -31,6 +31,7 @@
 #define OPERATIONS_TREE__HH
 
 #include <gtkmm.h>
+#include "../base/pf_filter.hh"
 
 
 namespace PF {
@@ -47,17 +48,13 @@ namespace PF {
       add(col_name); 
       add(col_nickname); 
       add(col_help);
-      add(col_command);
-      add(col_arguments);
-      add(col_phf_arguments);
+      add(col_filter);
     }
     
     Gtk::TreeModelColumn<Glib::ustring> col_name;
     Gtk::TreeModelColumn<std::string> col_nickname;
     Gtk::TreeModelColumn<Glib::ustring> col_help;
-    Gtk::TreeModelColumn<std::string> col_command;
-    Gtk::TreeModelColumn<std::string> col_arguments;
-    Gtk::TreeModelColumn<std::string> col_phf_arguments;
+    Gtk::TreeModelColumn<PFFilter*> col_filter;
   };
 
   class OperationsTree : public Gtk::TreeView
@@ -93,6 +90,7 @@ namespace PF {
   public:
     OperationsTreeWidget();
     OperationsTree& get_tree() { return tree; }
+//    void set_tree(OperationsTree& t) { tree = t; }
 
     void on_selection_changed();
   };

@@ -138,11 +138,15 @@ bool PF::GmicUntiledOperationPar::run_gmic( VipsImage* in, std::string command )
   return true;
 }
 
+bool PF::GmicUntiledOperationPar::run_gmic2( VipsImage* in, std::vector<VipsImage*> vecout, std::string command )
+{
+}
+
 bool PF::GmicUntiledOperationPar::run_gmic2( VipsImage* in, VipsImage** out, std::string command )
 {
   if( command.empty() ) 
     return false;
-  std::cout<<"g'mic command: "<<command<<std::endl;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): g'mic command: "<<command<<std::endl;
   if( !new_gmic() ) 
     return false;
   
@@ -151,12 +155,12 @@ bool PF::GmicUntiledOperationPar::run_gmic2( VipsImage* in, VipsImage** out, std
 
   /* Convert input to a float membuffer.
    */
-  std::cout<<"vips_image_new_memory()"<<std::endl;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): vips_image_new_memory()"<<std::endl;
   t1 = vips_image_new_memory();
-  std::cout<<"vips_cast_float()"<<std::endl;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): vips_cast_float()"<<std::endl;
   if( vips_cast_float( in, &t0, NULL ) )
     return( false ); 
-  std::cout<<"vips_image_write()"<<std::endl;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): vips_image_write()"<<std::endl;
   if( vips_image_write( t0, t1 ) )
     return( false ); 
 
@@ -171,7 +175,7 @@ bool PF::GmicUntiledOperationPar::run_gmic2( VipsImage* in, VipsImage** out, std
   int ch = in->Bands;
   
 
-  std::cout<<"copy image to gmic"<<std::endl;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): copy image to gmic"<<std::endl;
   // Initialize each image of 'image_list'
   {
     gmic_image<float>& img = image_list[0];
@@ -192,7 +196,7 @@ bool PF::GmicUntiledOperationPar::run_gmic2( VipsImage* in, VipsImage** out, std
     }
   }
 
-  std::cout<<"call gmic"<<std::endl;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): call gmic"<<std::endl;
 
  
   try 
@@ -205,21 +209,31 @@ bool PF::GmicUntiledOperationPar::run_gmic2( VipsImage* in, VipsImage** out, std
     return false;
   }
 
-  std::cout<<"image_list._width="<<image_list._width<<std::endl;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): image_list._width="<<image_list._width<<std::endl;
   
-  std::cout<<"copy gmic output"<<std::endl;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): copy gmic output"<<std::endl;
   
   float *buf = NULL;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): copy gmic output 1"<<std::endl;
   
-  *out = vips_image_new_memory();
-  set_metadata( in, *out );
+//  VipsImage* out = NULL;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): copy gmic output 2"<<std::endl;
   buf = (float*)malloc((height*width*ch) * sizeof(float));
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): copy gmic output 3"<<std::endl;
   
+  for (int image_num = 0; image_num < 1/*image_list._width*/; image_num++) {
+    std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): copy gmic output 4"<<std::endl;
+  *out = vips_image_new_memory();
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): copy gmic output 5"<<std::endl;
+  set_metadata( in, *out );
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): copy gmic output 6"<<std::endl;
+ 
   {
-    gmic_image<float>& img = image_list[0];
-    float *ptr = image_list[0]._data;
+    gmic_image<float>& img = image_list[image_num];
+    std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): copy gmic output 7"<<std::endl;
+    float *ptr = image_list[image_num]._data;
     
-    std::cout<<"img._height="<<img._height<<", img._width="<<img._width<<", img._spectrum="<<img._spectrum<<std::endl;
+    std::cout<<"PF::GmicUntiledOperationPar::run_gmic2() img._height="<<img._height<<", img._width="<<img._width<<", img._spectrum="<<img._spectrum<<std::endl;
 
 /*  g_assert(img._spectrum <= (unsigned int)ch);
     g_assert(img._height <= (unsigned int)height);
@@ -239,7 +253,7 @@ bool PF::GmicUntiledOperationPar::run_gmic2( VipsImage* in, VipsImage** out, std
 //    }
   }
 
-  std::cout<<"update out image"<<std::endl;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): update out image"<<std::endl;
   
   for (unsigned int y = 0; y<height; ++y) // height rows.
   {
@@ -249,10 +263,13 @@ bool PF::GmicUntiledOperationPar::run_gmic2( VipsImage* in, VipsImage** out, std
         return( false );
       }
   }
-
+  PF::vips_copy_metadata( in, *out );
+//  vecout.push_back(out);
+  }
+  
   free(buf);
 
-  std::cout<<"return gmic image"<<std::endl;
+  std::cout<<"PF::GmicUntiledOperationPar::run_gmic2(): return gmic images"<<std::endl;
   
   if( gmic_instance ) {
     delete gmic_instance;

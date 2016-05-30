@@ -319,11 +319,15 @@ PF::PyramidLevel* PF::ImagePyramid::get_level( unsigned int& level )
     int fd = pf_mkstemp( fname );
     if( fd < 0 )
       return NULL;
+#ifndef NDEBUG
     std::cout<<"ImagePyramid: cache file: "<<fname<<std::endl;
 
     std::cout<<"ImagePyramid: saving cache file..."<<std::endl;
+#endif
     vips_rawsave_fd( out, fd, NULL );
+#ifndef NDEBUG
     std::cout<<"ImagePyramid: cache file saved."<<std::endl;
+#endif
     //char tifname[500];
     //sprintf(tifname,"/tmp/level_%d-1.tif",(int)levels.size());
     //vips_image_write_to_file( out, tifname );

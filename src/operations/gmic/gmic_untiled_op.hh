@@ -74,6 +74,7 @@ namespace PF
     bool run_gmic( VipsImage* in, std::string command );
 
     bool run_gmic2( VipsImage* in, VipsImage** out, std::string command );
+    bool run_gmic2( VipsImage* in, std::vector<VipsImage*> vecout, std::string command );
   };
 
   

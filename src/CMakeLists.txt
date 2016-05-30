@@ -354,6 +354,7 @@ INSTALL(DIRECTORY ../icc DESTINATION share/photoflow)
 INSTALL(DIRECTORY ../icons DESTINATION share/photoflow)
 INSTALL(DIRECTORY ../help DESTINATION share/photoflow)
 INSTALL(FILES ../src/vips/gmic/gmic/src/gmic_def.gmic DESTINATION share/photoflow)
+INSTALL(FILES ../src/vips/gmic/gmic/src/phf_def.gmic DESTINATION share/photoflow)
 
 
 #--------------------------------------------------

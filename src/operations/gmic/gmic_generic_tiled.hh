@@ -56,16 +56,19 @@ public:
   bool needs_caching() { return false; }
 
   void set_prop_name(const std::string s) { prop_name.set( s ); set_default_name( s ); }
-    std::string get_prop_name() { return prop_name.get(); }
-    void set_prop_command(const std::string s) { prop_command.set( s ); }
-    std::string get_prop_command() { return prop_command.get(); }
-    void set_prop_arguments(const std::string s) { prop_arguments.set(s); }
-    std::string get_prop_arguments() { return prop_arguments.get(); }
+  std::string get_prop_name() { return prop_name.get(); }
+  void set_prop_command(const std::string s) { prop_command.set( s ); }
+  std::string get_prop_command() { return prop_command.get(); }
+  void set_prop_arguments(const std::string s) { prop_arguments.set(s); }
+  std::string get_prop_arguments() { return prop_arguments.get(); }
 
   int get_padding( int level ) { return padding; }    
+  int get_verbosity_mode() { return 0; }
 
-  void post_init(std::vector<std::string>& columns);
-  void create_properties(std::vector<std::string>& filter_arguments);
+  void post_init();
+  void create_properties();
+  std::string build_command();
+//  void create_properties(std::vector<std::string>& filter_arguments);
 
   VipsImage* build(std::vector<VipsImage*>& in, int first, 
                    VipsImage* imap, VipsImage* omap, 

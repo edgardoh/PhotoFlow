@@ -239,10 +239,11 @@ PF::RawImage::RawImage( const std::string _fname ):
     // Grab the WB
     for(int i = 0; i < 3; i++) pdata->color.cam_mul[i] = r->metadata.wbCoeffs[i];
     pdata->color.cam_mul[3] = pdata->color.cam_mul[1];
+#ifndef NDEBUG
     std::cout<<"RawSpeed camera WB multipliers: "<<pdata->color.cam_mul[0]<<" "<<pdata->color.cam_mul[1]
              <<" "<<pdata->color.cam_mul[2]<<" "<<pdata->color.cam_mul[3]<<std::endl;
     std::cout<<"RawSpeed black="<<pdata->color.black<<"  white="<<pdata->color.maximum<<std::endl;
-
+#endif
     /*
     img->filters = 0u;
     if(!r->isCFA)
@@ -308,9 +309,9 @@ PF::RawImage::RawImage( const std::string _fname ):
 
     // crop - Bottom,Right corner
     RawSpeed::iPoint2D cropBR = dimUncropped - dimCropped - cropTL;
-
+#ifndef NDEBUG
     std::cout<<"original width: "<<dimUncropped.x<<"  crop offset: "<<cropTL.x<<"  cropped width: "<<dimCropped.x<<std::endl;
-
+#endif
     /*
     img->fuji_rotation_pos = r->metadata.fujiRotationPos;
     img->pixel_aspect_ratio = (float)r->metadata.pixelAspectRatio;
@@ -363,7 +364,9 @@ PF::RawImage::RawImage( const std::string _fname ):
   sprintf( fname,"%spfraw-XXXXXX", PF::PhotoFlow::Instance().get_cache_dir().c_str() );
   int temp_fd = pf_mkstemp( fname );
   if( temp_fd < 0 ) return;
+#ifndef NDEBUG
   std::cout<<"RawLoader: cache file: "<<fname<<std::endl;
+#endif
 	cache_file_name = fname;
   
 #ifndef NDEBUG
@@ -412,9 +415,11 @@ PF::RawImage::RawImage( const std::string _fname ):
       case RawSpeed::TYPE_USHORT16: val = *((uint16_t*)r->getDataUncropped(col2,row2)); break;
       case RawSpeed::TYPE_FLOAT32: val = *((float*)r->getDataUncropped(col2,row2)); break;
       }
+#ifndef NDEBUG
       if( abs(row-2798)<5 && abs(col-2748)<5 ) {
         std::cout<<"raw pixel @ ("<<row<<","<<col<<"): val="<<val<<"  c="<<(int)color<<"  max="<<pdata->color.maximum<<std::endl;
       }
+#endif
       //pdata->color.black = 2048;
       nval = val - pdata->color.black;
       nval /= (pdata->color.maximum - pdata->color.black);
@@ -452,11 +457,13 @@ PF::RawImage::RawImage( const std::string _fname ):
 #ifndef NDEBUG
     if( (row%100) == 0 ) std::cout<<"  row "<<row<<" saved."<<std::endl;
 #ifdef PF_USE_RAWSPEED
+#ifndef NDEBUG
 		if( row==0 ) {
 			for(col=0; col<10; col++) {
 				std::cout<<"  val="<<data[row][col]<<"  c="<<(unsigned int)FC(row,col)<<std::endl;
 			}
 		}
+#endif
 #endif
 #endif
   }
@@ -474,9 +481,13 @@ PF::RawImage::RawImage( const std::string _fname ):
   m.reset();
 #endif
 
+#ifndef NDEBUG
   std::cout<<"Starting CA correction..."<<std::endl;
+#endif
   CA_correct_RT();
+#ifndef NDEBUG
   std::cout<<"... CA correction finished"<<std::endl;
+#endif
   memcpy( pdata->color.ca_fitparams, fitparams, sizeof(fitparams) );
   for(int i = 0; i < 3; i++) {
     for(int j = 0; j < 2; j++) {
@@ -598,7 +609,9 @@ PF::RawImage::RawImage( const std::string _fname ):
   int fd = pf_mkstemp( fname );
   if( fd < 0 )
     return;
+#ifndef NDEBUG
   std::cout<<"RawLoader: cache file: "<<fname<<std::endl;
+#endif
 	cache_file_name2 = fname;
   
   vips_rawsave_fd( out_demo, fd, NULL );
@@ -626,7 +639,9 @@ PF::RawImage::RawImage( const std::string _fname ):
   if( !buf2 ) return;
   memcpy( buf2, pdata, sizeof(dcraw_data_t) );
   dcraw_data_t* image_data = (dcraw_data_t*)buf2;
+#ifndef NDEBUG
   std::cout<<"RawImage: WB = "<<image_data->color.cam_mul[0]<<" "<<image_data->color.cam_mul[1]<<" "<<image_data->color.cam_mul[2]<<std::endl;
+#endif
   vips_image_set_blob( demo_image, "raw_image_data",
 		       (VipsCallbackFn) g_free, buf2, 
 		       sizeof(dcraw_data_t) );
@@ -651,7 +666,9 @@ PF::RawImage::~RawImage()
 {
   if( image ) PF_UNREF( image, "RawImage::~RawImage() image" );
   if( demo_image ) PF_UNREF( demo_image, "RawImage::~RawImage() demo_image" );
+#ifndef NDEBUG
 	std::cout<<"RawImage::~RawImage() called."<<std::endl;
+#endif
 	if( !(cache_file_name.empty()) )
 		unlink( cache_file_name.c_str() );
 	if( !(cache_file_name2.empty()) )
@@ -692,18 +709,22 @@ VipsImage* PF::RawImage::get_image(unsigned int& level)
 
 void PF::RawImage::print_exif(  PF::exif_data_t* data )
 {
+#ifndef NDEBUG
   std::cout<<"RawImage: (data)"<<std::endl
         <<"      camera maker: "<<data->exif_maker<<std::endl
         <<"      model: "<<data->exif_model<<std::endl
         <<"      lens: "<<data->exif_lens<<std::endl;
+#endif
 }
 
 void PF::RawImage::print_exif()
 {
+#ifndef NDEBUG
   std::cout<<"RawImage:"<<std::endl
       <<"      camera maker: "<<exif_data.exif_maker<<std::endl
       <<"      model: "<<exif_data.exif_model<<std::endl
       <<"      lens: "<<exif_data.exif_lens<<std::endl;
+#endif
   size_t bufsz;
   PF::exif_data_t* buf;
   if( !vips_image_get_blob( image, PF_META_EXIF_NAME,
@@ -1025,7 +1046,9 @@ void PF::RawImage::CA_correct_RT()
 
         if (autoCA) {
           //printf("width=%d  height=%d filters=%d\n",width,height,dcraw_data.idata.filters);
+#ifndef NDEBUG
           std::cout<<"width="<<width<<"  height="<<height<<"  filters="<<dcraw_data.idata.filters<<std::endl;
+#endif
             // Main algorithm: Tile loop
             //#pragma omp for collapse(2) schedule(dynamic) nowait
             for (top = -border ; top < height; top += TS - border2)

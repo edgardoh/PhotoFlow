@@ -42,7 +42,7 @@ namespace PF {
   {
     Gtk::VBox controlsBox;
     
-    Slider numScales_slider, currScale_slider, blendFactor_slider;
+    Slider numScales_slider, /*currScale_slider,*/ blendFactor_slider;
 
   public:
     WaveletDecomposeConfigGUI( Layer* l );

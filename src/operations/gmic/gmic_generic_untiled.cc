@@ -28,9 +28,10 @@
  */
 
 
-#include "gmic.hh"
-#include "gmic_load.hh"
+//#include "gmic.hh"
+//#include "gmic_load.hh"
 #include "gmic_generic_untiled.hh"
+#include "../../base/gmic_filter.hh"
 #include "../operations/draw.hh"
 
 
@@ -45,7 +46,7 @@ prop_arguments("prop_arguments", this, "")
   set_type( "gmic_generic_untiled" );
   set_default_name( _("GMIC Generic Untiled") );
 }
-
+#if 0
 void PF::GmicGenericUntiledPar::create_properties(std::vector<std::string>& filter_arguments) {
   
   GMicArgumentList arg_list;
@@ -113,47 +114,51 @@ void PF::GmicGenericUntiledPar::create_properties(std::vector<std::string>& filt
   }
 
 }
+#endif
 
-void PF::GmicGenericUntiledPar::post_init(std::vector<std::string>& columns)
+void PF::GmicGenericUntiledPar::post_init()
 {
-  GmicUntiledOperationPar::post_init(columns);
+  GmicUntiledOperationPar::post_init();
   
-  set_prop_name(columns[0]);
-  set_prop_command(columns[1]);
-  set_prop_arguments(columns[2]);
+//  set_prop_name(columns[0]);
+//  set_prop_command(columns[1]);
+//  set_prop_arguments(columns[2]);
 
-  create_properties(columns);
+//  create_properties();
   
 }
 
-std::vector<VipsImage*> PF::GmicGenericUntiledPar::build_many(std::vector<VipsImage*>& in, int first,
+
+/*std::vector<VipsImage*> PF::GmicGenericUntiledPar::build_many(std::vector<VipsImage*>& in, int first,
     VipsImage* imap, VipsImage* omap,
-    unsigned int& level)
+    unsigned int& level)*/
+VipsImage* PF::GmicGenericUntiledPar::build(std::vector<VipsImage*>& in, int first, 
+                 VipsImage* imap, VipsImage* omap, 
+                 unsigned int& level)
 {
   VipsImage* srcimg = NULL;
   if( in.size() > 0 ) srcimg = in[0];
 
-  std::vector<VipsImage*> outvec;
+//  std::vector<VipsImage*> outvec;
 
-  if( !srcimg ) return outvec;
+  if( !srcimg ) return NULL;
 
   std::string command;
 
-  GMicArgumentList arg_list;
+/*  GMicArgumentList arg_list;
   arg_list.parse_arguments(get_columns()[2]);
   command = arg_list.build_command(get_columns()[1], this);
-
+*/
   VipsImage* out = NULL;
 
   run_gmic2( srcimg, &out, command );
 
   PF::vips_copy_metadata( srcimg, out );
 
-  outvec.push_back(out);
+//  outvec.push_back(out);
 
-  return outvec;
+  return out;
 }
-
 
 PF::ProcessorBase* PF::new_gmic_generic_untiled()
 {

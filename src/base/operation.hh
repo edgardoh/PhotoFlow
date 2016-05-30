@@ -53,6 +53,8 @@
 
 #include "photoflow.hh"
 
+#include "pf_filter.hh"
+
 
 
 #define OP_TEMPLATE_DEF \
@@ -107,9 +109,11 @@ namespace PF
   {
     std::list<std::string> initial_params;
 
-    std::vector<std::string> additional_columns;
+    PFFilter* pf_filter;
 
     Layer* layer;
+
+    //void create_controls(OperationConfigUI *op, std::list<FilterField>& field_list);
 
   public:
 
@@ -125,8 +129,10 @@ namespace PF
     virtual void do_update() { update(); }
     virtual void update_properties() = 0;
     
-    virtual void post_init(std::vector<std::string>& columns) { additional_columns = columns; }
-    virtual std::vector<std::string>& get_columns() { return additional_columns; }
+    virtual void post_init() { }
+//    PFFilter& get_pf_filter() { return pf_filter; }
+    PFFilter* get_pf_filter() { return pf_filter; }
+    void set_pf_filter(PFFilter* f) { pf_filter = f; }
 
   };
 
@@ -172,7 +178,7 @@ namespace PF
 
     Property<bool> mask_enabled;
     
-    std::vector<std::string> additional_columns;
+    PFFilter* pf_filter;
 
   public:
     sigc::signal<void> signal_modified;
@@ -246,8 +252,10 @@ namespace PF
     std::string get_default_name() { return default_name; }
     void set_default_name( std::string n ) { default_name = n; }
 
-    virtual void post_init(std::vector<std::string>& columns) { additional_columns = columns; }
-    virtual std::vector<std::string>& get_columns() { return additional_columns; }
+    virtual void post_init() { }
+//    PFFilter& get_pf_filter() { return pf_filter; }
+    void set_pf_filter(PFFilter* f) { pf_filter = f; }
+    PFFilter* get_pf_filter() { return pf_filter; }
 
     int get_rgb_target_channel() 
     {

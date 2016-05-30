@@ -128,8 +128,10 @@ PF::PipelineNode* PF::Pipeline::set_node( Layer* layer, Layer* input_layer )
       node->processor = PF::PhotoFlow::Instance().
         new_operation_nogui( srcpar->get_type(), NULL );
       std::cout<<"PF::PipelineNode* PF::Pipeline::set_node() "<<std::endl;
-      if (node->processor->get_par() != NULL) 
-		node->processor->get_par()->post_init(srcpar->get_columns());
+      if (node->processor->get_par() != NULL) {
+        node->processor->get_par()->set_pf_filter(srcpar->get_pf_filter());
+        node->processor->get_par()->post_init();
+      }
     }
 
     if( (node->processor != NULL) &&
