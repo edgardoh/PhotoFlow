@@ -59,6 +59,7 @@
 #include "../gui/operations/volume_config.hh"
 #include "../gui/operations/threshold_config.hh"
 #include "../gui/operations/shadows_highlights_config.hh"
+#include "../gui/operations/wavelet_decompose_config.hh"
 
 #include "operations/gmic/new_gmic_operation_config.hh"
 
@@ -1138,6 +1139,9 @@ PF::ProcessorBase* PF::new_operation_with_gui( std::string op_type, PF::Layer* c
 
     dialog = new PF::ShadowsHighlightsConfigGUI( current_layer );
 
+  } else if( op_type == "wavelet_decompose" ) {
+
+    dialog = new PF::WaveletDecomposeConfigGUI( current_layer );
   }
 
   if( !dialog ) {
