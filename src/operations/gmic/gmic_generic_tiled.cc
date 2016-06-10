@@ -47,7 +47,7 @@ prop_command("prop_command", this, ""),
 prop_arguments("prop_arguments", this, "")
 { 
   gmic = PF::new_gmic();
-  gmic_generic_algo = new PF::Processor<PF::GmicGenericTiledAlgoPar,PF::GmicGenericTiledAlgoProc>();
+//  gmic_generic_algo = new PF::Processor<PF::GmicGenericTiledAlgoPar,PF::GmicGenericTiledAlgoProc>();
   
   padding = 0;
   
@@ -63,6 +63,7 @@ void PF::GmicGenericTiledPar::post_init()
 //	set_prop_name(columns[GMicLoad::col_name]);
 //	set_prop_command(columns[GMicLoad::col_command]);
 //	set_prop_arguments(columns[GMicLoad::col_arguments_gmic]);
+	
   set_default_name( get_pf_filter()->get_name() );
 
 	create_properties();
@@ -71,15 +72,15 @@ void PF::GmicGenericTiledPar::post_init()
 
 std::string PF::GmicGenericTiledPar::build_command()
 {
-  std::cout<<"PF::GmicGenericTiledPar::build_command()"<<std::endl;
+//  std::cout<<"PF::GmicGenericTiledPar::build_command()"<<std::endl;
   
   std::list<FilterField> field_list = get_pf_filter()->get_fields();
-  std::cout<<"PF::GmicGenericTiledPar::build_command() 2"<<std::endl;
+//  std::cout<<"PF::GmicGenericTiledPar::build_command() 2"<<std::endl;
 //  std::string gmic_command = static_cast<GmicFilter&>(get_pf_filter()).get_command();
   GmicFilter* gmic_filter = dynamic_cast<GmicFilter*>( get_pf_filter() );
-  std::cout<<"PF::GmicGenericTiledPar::build_command() 3"<<std::endl;
+//  std::cout<<"PF::GmicGenericTiledPar::build_command() 3"<<std::endl;
   std::string gmic_command = gmic_filter->get_command();
-  std::cout<<"PF::GmicGenericTiledPar::build_command(): "<<gmic_command<<std::endl;
+//  std::cout<<"PF::GmicGenericTiledPar::build_command(): "<<gmic_command<<std::endl;
   
   int nbparams = field_list.size();
   std::string lres;
@@ -103,17 +104,18 @@ std::string PF::GmicGenericTiledPar::build_command()
           it->field_type == FilterField::field_type_folder || 
           it->field_type == FilterField::field_type_color ) {
         PropertyBase* prop = get_property(it->field_name);
-        std::string _ss;
-        if (it->field_type == FilterField::field_type_choise)
-          _ss = prop->get_enum_value_str();
-        else
-          _ss = prop->get_str();
-
-        const unsigned int l = (unsigned int)_ss.length();
-        for (unsigned int i = 1; i<l - 1; ++i) { const char c = _ss[i]; _ss[i] = c=='\"'?gmic_dquote:c; }
-
-        lres += _ss + ',';
-
+        if (prop) {
+          std::string _ss;
+          if (it->field_type == FilterField::field_type_choise)
+            _ss = prop->get_enum_value_str();
+          else
+            _ss = prop->get_str();
+  
+          const unsigned int l = (unsigned int)_ss.length();
+          for (unsigned int i = 1; i<l - 1; ++i) { const char c = _ss[i]; _ss[i] = c=='\"'?gmic_dquote:c; }
+  
+          lres += _ss + ',';
+        }
       }
     }
     if (lres.back() == ',') lres.back() = 0;
@@ -139,7 +141,7 @@ VipsImage* PF::GmicGenericTiledPar::build(std::vector<VipsImage*>& in, int first
   PF::GMicPar* gpar = dynamic_cast<PF::GMicPar*>( gmic->get_par() );
   if( !gpar ) return NULL;
 
-  GmicGenericTiledAlgoPar* ggen_par = dynamic_cast<GmicGenericTiledAlgoPar*>( gmic_generic_algo->get_par() );
+//  GmicGenericTiledAlgoPar* ggen_par = dynamic_cast<GmicGenericTiledAlgoPar*>( gmic_generic_algo->get_par() );
 
   std::string command;
   
@@ -194,55 +196,59 @@ void PF::GmicGenericTiledPar::create_properties()
 */
   for (std::list<FilterField>::iterator it=field_list.begin(); it != field_list.end(); ++it) {
     
-//    std::cout<<"PF::OpParBase::create_properties()"<<", "<<it->field_type<<", "<<it->field_description<<std::endl;
-    
-    prop = NULL;
-    switch (it->field_type)
-    {
-    case FilterField::field_type_float:
-      prop = new Property<float>(it->field_name, this, it->val_default);
-      break;
-    case FilterField::field_type_int:
-      prop = new Property<int>(it->field_name, this, it->val_default);
-      break;
-    case FilterField::field_type_bool:
-      prop = new Property<bool>(it->field_name, this, it->val_default);
-      break;
-    case FilterField::field_type_button:
-      break;
-    case FilterField::field_type_choise:
-    {
-      int enum_val = 0;
-      std::list<std::pair<std::string, Glib::ustring>>l_arg_l = it->arg_list;
-      prop = new PropertyBase(it->field_name, this );
-      for (std::list<std::pair<std::string, Glib::ustring>>::iterator itl=l_arg_l.begin(); itl != l_arg_l.end(); ++itl) {
-          prop->add_enum_value( enum_val++, (*itl).first, (*itl).second );
+    std::cout<<"PF::GmicGenericTiledPar::create_properties()"<<", "<<it->field_name<<", "<<it->field_description<<std::endl;
+    // Only GMIC arguments are properties
+    if (it->field_name.compare(0, 3, "arg") == 0) {
+      prop = NULL;
+      switch (it->field_type)
+      {
+      case FilterField::field_type_float:
+        prop = new Property<float>(it->field_name, this, it->val_default);
+        break;
+      case FilterField::field_type_int:
+        prop = new Property<int>(it->field_name, this, it->val_default);
+        break;
+      case FilterField::field_type_bool:
+        prop = new Property<bool>(it->field_name, this, it->val_default);
+        break;
+      case FilterField::field_type_button:
+        break;
+      case FilterField::field_type_choise:
+      {
+        int enum_val = 0;
+        std::list<std::pair<std::string, Glib::ustring>>l_arg_l = it->arg_list;
+        prop = new PropertyBase(it->field_name, this );
+        for (std::list<std::pair<std::string, Glib::ustring>>::iterator itl=l_arg_l.begin(); itl != l_arg_l.end(); ++itl) {
+            prop->add_enum_value( enum_val++, (*itl).first, (*itl).second );
+        }
+        prop->set_enum_value((int) it->val_default);
       }
-      prop->set_enum_value((int) it->val_default);
-    }
-      break;
-    case FilterField::field_type_text_multi:
-      prop = new Property<std::string>(it->field_name, this, it->field_description);
-      break;
-    case FilterField::field_type_text_single:
-      prop = new Property<std::string>(it->field_name, this, it->field_description);
-      break;
-    case FilterField::field_type_file:
-      break;
-    case FilterField::field_type_folder:
-      break;
-    case FilterField::field_type_color:
-      prop = new Property<RGBColor>(it->field_name, this, RGBColor(it->val_default, it->val_min, it->val_max));
-      break;
-    case FilterField::field_type_const:
-      prop = new Property<std::string>(it->field_name, this, it->str_value);
-      break;
-    case FilterField::field_type_note:
-      break;
-    case FilterField::field_type_link:
-      break;
-    case FilterField::field_type_separator:
-      break;
+        break;
+      case FilterField::field_type_text_multi:
+        prop = new Property<std::string>(it->field_name, this, it->field_description);
+        break;
+      case FilterField::field_type_text_single:
+        prop = new Property<std::string>(it->field_name, this, it->field_description);
+        break;
+      case FilterField::field_type_file:
+        break;
+      case FilterField::field_type_folder:
+        break;
+      case FilterField::field_type_color:
+        prop = new Property<RGBColor>(it->field_name, this, RGBColor(it->val_default, it->val_min, it->val_max));
+        break;
+      case FilterField::field_type_const:
+        prop = new Property<std::string>(it->field_name, this, it->str_value);
+        break;
+      case FilterField::field_type_note:
+        break;
+      case FilterField::field_type_link:
+        break;
+      case FilterField::field_type_separator:
+        break;
+      }
+    } else if (it->field_name == "phf_padding") {
+      set_padding(std::atoi(it->str_value.c_str()));
     }
   }
 

@@ -379,6 +379,7 @@ PF::OperationsTreeDialog::OperationsTreeDialog( Image* img, LayerWidget* lw ):
   op_mask.get_tree().add_op( _("Curves"), "curves" );
   op_mask.get_tree().add_op( _("Gradient"), "gradient");
   op_mask.get_tree().add_op( _("Path"), "path_mask");
+  op_mask.get_tree().add_op( _("Shapes"), "shapes");
   op_mask.get_tree().add_op( _("H/S/L Mask"), "hsl_mask" );
   op_mask.get_tree().add_op( _("Gaussian blur"), "gaussblur" );
   //#if !defined(__APPLE__) && !defined(__MACH__)
@@ -393,6 +394,7 @@ PF::OperationsTreeDialog::OperationsTreeDialog( Image* img, LayerWidget* lw ):
 
   op_misc.get_tree().add_op( _("Draw"), "draw" );
   op_misc.get_tree().add_op( _("Clone stamp"), "clone_stamp" );
+  op_misc.get_tree().add_op( _("Retouch"), "retouch" );
   op_misc.get_tree().add_op( _("Clone layer"), "clone" );
   op_misc.get_tree().add_op( _("Buffer layer"), "buffer" );
   op_misc.get_tree().add_op( _("Digital watermark"), "gmic_watermark_fourier" );

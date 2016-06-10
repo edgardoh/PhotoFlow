@@ -209,7 +209,7 @@ void PF::Pipeline::set_images( std::vector<VipsImage*> imgvec, unsigned int id )
     return;
 
   PF::Layer* l = image->get_layer_manager().get_layer( id );
-#ifndef NDEBUG
+//#ifndef NDEBUG
   if( l ) {
     std::cout<<"Pipeline::set_images(): layer \""<<l->get_name()<<"\"";
     if( nodes[id] != NULL ) {
@@ -218,7 +218,7 @@ void PF::Pipeline::set_images( std::vector<VipsImage*> imgvec, unsigned int id )
     if(imgvec.size() > 1) std::cout<<"  new image="<<imgvec[0];
     std::cout<<std::endl;
   }
-#endif
+//#endif
 
   char tstr[500];
   if( nodes[id] != NULL ) {
@@ -239,6 +239,7 @@ void PF::Pipeline::set_images( std::vector<VipsImage*> imgvec, unsigned int id )
       nodes[id]->images.clear();
       nodes[id]->image = NULL;
     }
+    std::cout<<"  imgvec="<<imgvec.size()<<std::endl;
     nodes[id]->images = imgvec;
     if( !(imgvec.empty()) ) nodes[id]->image = imgvec[0];
     else nodes[id]->image = NULL;

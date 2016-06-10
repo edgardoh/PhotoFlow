@@ -193,6 +193,7 @@ public:
     
 //    std::cout<<"WavDecProc::render "<<std::endl;
 //    std::cout<<"ir->width="<<ir->width<<",  ir->height="<<ir->height<<", r->width="<<r->width<<",  r->height="<<r->height<<std::endl;
+    std::cout<<"r->left="<<r->left<<",  r->top="<<r->top<<std::endl;
     
     wd_width = ir->width;
     wd_height = ir->height;

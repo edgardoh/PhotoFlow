@@ -241,6 +241,7 @@ public:
   virtual bool pointer_press_event( int button, double x, double y, int mod_key ) { return false; }
   virtual bool pointer_release_event( int button, double x, double y, int mod_key ) { return false; }
   virtual bool pointer_motion_event( int button, double x, double y, int mod_key ) { return false; }
+  virtual bool pointer_scroll_event( int direction, int mod_key ) { return false; }
 
   //void on_intensity_value_changed();
   //void on_opacity_value_changed();

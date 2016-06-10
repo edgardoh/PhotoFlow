@@ -38,7 +38,7 @@ namespace PF {
 
   class GmicGenericConfigGUI: public OperationConfigGUI
   {
-    Gtk::Button updateButton;
+//    Gtk::Button updateButton;
     Gtk::VBox controlsBox;
 
   public:
@@ -49,7 +49,7 @@ namespace PF {
 
 //    void create_parameters_gui(std::string filter_arguments, const bool reset_params);
     
-    void on_update();
+//    void on_update();
   };
 
 }

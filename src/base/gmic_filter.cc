@@ -630,7 +630,9 @@ void PF::GMicFilters::add_menu_entry(std::list<GMicDefFilter>& menu_entries, boo
 //  GMicDefFilter entry(is_folder, entry_level, entry_type, entry_name, entry_command, entry_arguments);
   GMicDefFilter filter;
   
-//  std::cout<<"PF::GMicFilters::add_menu_entry(): entry_command: "<<entry_command<<std::endl;
+//  std::cout<<"PF::GMicFilters::add_menu_entry(): entry_name: "<<entry_name<<std::endl;
+//  lbl = new Gtk::Label();
+
   filter.set_is_folder(is_folder);
   filter.set_entry_level(entry_level);
   filter.get_filter().set_command(entry_command);
@@ -649,6 +651,7 @@ bool PF::GMicFilters::find_match_entry(std::list<GMicDefFilter>& def_filters, GM
   std::list<GMicDefFilter>::iterator it;
   
   for( it = def_filters.begin(); it != def_filters.end() && !found; ++it ) {
+//    std::cout<<"PF::GMicFilters::find_match_entry()"<<", "<<it->get_filter().get_command()<<std::endl;
     if( it->get_filter().get_command() == in.get_filter().get_command() && it->get_filter().get_name() == in.get_filter().get_name()) {
       out = *it;
       found = true;
@@ -681,7 +684,8 @@ void PF::GMicFilters::load_filters()
   
   // load custom PhF commands for GMIC filters
   parse_def_file(phf_def_filename, phf_def_filters);
-  
+  std::cout<<"PF::GMicFilters::load_filters()"<<", find_match_entry(phf_def_filters, *it_gmic, phf_out): "<<phf_def_filters.size()<<std::endl;
+ 
   // merge G'MIC filter def with custom PhF and build the operations tree
     std::list<GMicDefFilter>::iterator it_gmic;
     for( it_gmic = gmic_def_filters.begin(); it_gmic != gmic_def_filters.end(); ++it_gmic ) {
@@ -690,6 +694,7 @@ void PF::GMicFilters::load_filters()
       bool exclude = false;
       GMicDefFilter phf_out;
       if (find_match_entry(phf_def_filters, *it_gmic, phf_out)) {
+ //       std::cout<<"PF::GMicFilters::load_filters()"<<", find_match_entry(phf_def_filters, *it_gmic, phf_out): "<<phf_def_filters.size()<<std::endl;
   //    for( it_phf = phf_entries.begin(); it_phf != phf_entries.end() && !found; ++it_phf ) {
   //      if( it_gmic->get_entry_command() == it_phf->get_entry_command() && it_gmic->get_entry_name() == it_phf->get_entry_name()) {
   //        it_gmic->set_entry_phf_arguments( it_phf->get_entry_arguments() );
@@ -707,8 +712,10 @@ void PF::GMicFilters::load_filters()
             } else if (it_phf_field->field_description == "phf_exclude") {
               exclude = ( it_phf_field->str_value[0] == '1' );
             }
-            else {
- //             it_gmic->get_filter().get_fields().push_back(*it_phf_field);
+            else if (it_phf_field->field_description.compare(0, 4,"phf_") == 0) {
+              // add only custom PhF properties
+              it_phf_field->field_name = it_phf_field->field_description;
+              it_gmic->get_filter().get_fields().push_back(*it_phf_field);
             }
           }
 
@@ -849,7 +856,7 @@ void PF::GMicFilters::parse_def_file(std::string& file_name, std::list<GMicDefFi
       bool add_code_separator = false;
       cimg::exception_mode(0);
       if (sources[l].back()==1) { // Overload default, add more checking.
-        std::cout<<"PF::GMicFilters::load_gmic_filters() if (sources[l].back()==1) "<<std::endl;
+//        std::cout<<"PF::GMicFilters::load_gmic_filters() if (sources[l].back()==1) "<<std::endl;
 
         
         com.load_raw(filename);
@@ -865,7 +872,7 @@ void PF::GMicFilters::parse_def_file(std::string& file_name, std::list<GMicDefFi
           add_code_separator = true;
         }
       } else {
-        std::cout<<"PF::GMicFilters::load_gmic_filters() else (sources[l].back()==1) "<<std::endl;
+//        std::cout<<"PF::GMicFilters::load_gmic_filters() else (sources[l].back()==1) "<<std::endl;
         
         com.load_raw(filename);
         const char *const ecom = com.end();

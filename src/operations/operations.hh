@@ -66,9 +66,11 @@ namespace PF
   ProcessorBase* new_desaturate();
   ProcessorBase* new_draw();
   ProcessorBase* new_clone_stamp();
+  ProcessorBase* new_retouch();
   ProcessorBase* new_lensfun();
   ProcessorBase* new_volume();
   ProcessorBase* new_path_mask();
+  ProcessorBase* new_shapes();
   ProcessorBase* new_shadows_highlights();
   ProcessorBase* new_wavelet_decompose();
   //ProcessorBase* new_vips_operation( std::string op_type );

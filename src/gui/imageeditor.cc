@@ -269,13 +269,15 @@ PF::ImageEditor::ImageEditor( std::string fname ):
 
   //imageArea_eventBox.add_events( Gdk::BUTTON_PRESS_MASK | Gdk::BUTTON_RELEASE_MASK | Gdk::POINTER_MOTION_MASK  | Gdk::POINTER_MOTION_HINT_MASK | Gdk::STRUCTURE_MASK );
   //main_panel.set_events( Gdk::BUTTON_PRESS_MASK | Gdk::BUTTON_RELEASE_MASK | Gdk::POINTER_MOTION_MASK  | Gdk::POINTER_MOTION_HINT_MASK | Gdk::STRUCTURE_MASK );
-  imageArea_eventBox.set_events( Gdk::BUTTON_PRESS_MASK | Gdk::BUTTON_RELEASE_MASK | Gdk::POINTER_MOTION_MASK  /*| Gdk::POINTER_MOTION_HINT_MASK*/ | Gdk::STRUCTURE_MASK );
+  imageArea_eventBox.set_events( Gdk::BUTTON_PRESS_MASK | Gdk::BUTTON_RELEASE_MASK | Gdk::POINTER_MOTION_MASK | Gdk::SCROLL_MASK /*| Gdk::POINTER_MOTION_HINT_MASK*/ | Gdk::STRUCTURE_MASK );
   imageArea_eventBox.signal_button_press_event().
     connect( sigc::mem_fun(*this, &PF::ImageEditor::my_button_press_event) );
   imageArea_eventBox.signal_button_release_event().
     connect( sigc::mem_fun(*this, &PF::ImageEditor::my_button_release_event) );
   imageArea_eventBox.signal_motion_notify_event().
     connect( sigc::mem_fun(*this, &PF::ImageEditor::my_motion_notify_event) );
+  imageArea_eventBox.signal_scroll_event().
+    connect( sigc::mem_fun(*this, &PF::ImageEditor::my_signal_scroll_event) );
 
 
   //imageArea->add_events( Gdk::BUTTON_PRESS_MASK | Gdk::BUTTON_RELEASE_MASK | Gdk::POINTER_MOTION_MASK  | Gdk::POINTER_MOTION_HINT_MASK | Gdk::STRUCTURE_MASK );
@@ -1320,6 +1322,68 @@ return false;
 	return true;
 }
 
+bool PF::ImageEditor::my_signal_scroll_event( GdkEventScroll* event )
+{
+  //#ifndef NDEBUG
+    std::cout<<"PF::ImageEditor::my_signal_scroll_event(): "<<std::endl;
+  //#endif
+/*    gdouble x = button->x;
+    gdouble y = button->y;
+*/
+    int direction;
+    switch( event->direction )
+    {
+    case GDK_SCROLL_UP:
+      direction = PF::DIRECTION_KEY_UP;
+      break;
+    case GDK_SCROLL_DOWN:
+      direction = PF::DIRECTION_KEY_DOWN;
+      break;
+    case GDK_SCROLL_LEFT:
+      direction = PF::DIRECTION_KEY_LEFT;
+      break;
+    case GDK_SCROLL_RIGHT:
+      direction = PF::DIRECTION_KEY_RIGHT;
+      break;
+    case GDK_SCROLL_SMOOTH:
+      direction = PF::DIRECTION_KEY_SMOOTH;
+      break;
+    default:
+      direction = PF::DIRECTION_KEY_NONE;
+      break;
+    }
+    
+    int mod_key = PF::MOD_KEY_NONE;
+    if( event->state & GDK_CONTROL_MASK ) mod_key |= PF::MOD_KEY_CTRL;
+    if( event->state & GDK_MOD1_MASK ) mod_key |= PF::MOD_KEY_ALT;
+    if( event->state & GDK_SHIFT_MASK ) mod_key |= PF::MOD_KEY_SHIFT;
+
+/*    if( mod_key == PF::MOD_KEY_CTRL ) {
+      return false;
+    }
+*/
+/*  #ifndef NDEBUG
+    std::cout<<"  pointer @ "<<x<<","<<y<<std::endl;
+    std::cout<<"ImageEditor::my_button_release_event(): active_layer="<<active_layer<<std::endl;
+  #endif */
+    if( active_layer &&
+        active_layer->get_processor() &&
+        active_layer->get_processor()->get_par() ) {
+      PF::OperationConfigUI* ui = active_layer->get_processor()->get_par()->get_config_ui();
+      PF::OperationConfigGUI* dialog = dynamic_cast<PF::OperationConfigGUI*>( ui );
+      if( dialog /*&& dialog->get_editing_flag() == true*/ ) {
+  //#ifndef NDEBUG
+        std::cout<<"  sending button scroll event to dialog: event->direction: "<<event->direction<<std::endl;
+  //#endif
+        if( dialog->pointer_scroll_event( direction, mod_key ) ) {
+          // The dialog requires to draw on top of the preview image, so we call draw_area() 
+          // to refresh the preview
+          imageArea->draw_area();
+        }
+      }
+    }
+    return true;
+}
 
 //bool PF::ImageEditor::on_preview_configure_event( GdkEventConfigure* event )
 void PF::ImageEditor::on_my_size_allocate(Gtk::Allocation& allocation)

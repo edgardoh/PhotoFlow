@@ -44,7 +44,7 @@ class GmicGenericTiledPar: public OpParBase
 	Property<std::string> prop_arguments;
 	
   ProcessorBase* gmic;
-  ProcessorBase* gmic_generic_algo;
+//  ProcessorBase* gmic_generic_algo;
 
   int padding;
 
@@ -63,6 +63,7 @@ public:
   std::string get_prop_arguments() { return prop_arguments.get(); }
 
   int get_padding( int level ) { return padding; }    
+  void set_padding( int p ) { padding = p; }    
   int get_verbosity_mode() { return 0; }
 
   void post_init();

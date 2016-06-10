@@ -34,12 +34,12 @@
 
 
 PF::GmicGenericConfigGUI::GmicGenericConfigGUI( PF::Layer* layer ):
-  OperationConfigGUI( layer, "G'MIC Generic" ),
-  updateButton( "Update" )
+  OperationConfigGUI( layer, "G'MIC Generic" )/*,
+  updateButton( "Update" )*/
 {
-  controlsBox.pack_start( updateButton );
+//  controlsBox.pack_start( updateButton );
 
-  updateButton.signal_clicked().connect( sigc::mem_fun(this, &GmicGenericConfigGUI::on_update) );
+//  updateButton.signal_clicked().connect( sigc::mem_fun(this, &GmicGenericConfigGUI::on_update) );
   
   add_widget( controlsBox );
   
@@ -157,7 +157,7 @@ void PF::GmicGenericConfigGUI::create_controls()
 	}
 
 }
-
+/*
 void PF::GmicGenericConfigGUI::on_update()
 {
   if( get_layer() && get_layer()->get_image() && 
@@ -172,7 +172,7 @@ void PF::GmicGenericConfigGUI::on_update()
     get_layer()->get_image()->unlock();
   }
 }
-
+*/
 
 /*
 void PF::DrawConfigGUI::on_color_btn_changed()

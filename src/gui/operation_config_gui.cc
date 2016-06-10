@@ -45,6 +45,7 @@
 #include "../gui/operations/perspective_config.hh"
 #include "../gui/operations/gradient_config.hh"
 #include "../gui/operations/path_mask_config.hh"
+#include "../gui/operations/shapes_config.hh"
 #include "../gui/operations/uniform_config.hh"
 #include "../gui/operations/curves_config.hh"
 #include "../gui/operations/channel_mixer_config.hh"
@@ -60,6 +61,7 @@
 #include "../gui/operations/threshold_config.hh"
 #include "../gui/operations/shadows_highlights_config.hh"
 #include "../gui/operations/wavelet_decompose_config.hh"
+#include "../gui/operations/retouch_config.hh"
 
 #include "operations/gmic/new_gmic_operation_config.hh"
 
@@ -1079,6 +1081,10 @@ PF::ProcessorBase* PF::new_operation_with_gui( std::string op_type, PF::Layer* c
 
     dialog = new PF::PathMaskConfigGUI( current_layer );
 
+  } else if( op_type == "shapes" ) {
+
+    dialog = new PF::ShapesConfigGUI( current_layer );
+
   } else if( op_type == "brightness_contrast" ) {
 
     dialog = new PF::BrightnessContrastConfigGUI( current_layer );
@@ -1142,6 +1148,10 @@ PF::ProcessorBase* PF::new_operation_with_gui( std::string op_type, PF::Layer* c
   } else if( op_type == "wavelet_decompose" ) {
 
     dialog = new PF::WaveletDecomposeConfigGUI( current_layer );
+
+  } else if( op_type == "retouch" ) {
+
+    dialog = new PF::RetouchConfigGUI( current_layer );
 
   }
 
