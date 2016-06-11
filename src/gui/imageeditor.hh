@@ -190,6 +190,7 @@ public:
   bool my_button_press_event( GdkEventButton* button );
   bool my_button_release_event( GdkEventButton* button );
   bool my_motion_notify_event( GdkEventMotion* button );
+  bool my_signal_scroll_event( GdkEventScroll* event );
 
   // Handler for the widget size change
   //bool on_preview_configure_event( GdkEventConfigure* event );

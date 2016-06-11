@@ -132,6 +132,16 @@ namespace PF
   };
 
 
+  enum direction_key_t {
+    DIRECTION_KEY_NONE = 0,
+    DIRECTION_KEY_UP = 1,
+    DIRECTION_KEY_DOWN = 2,
+    DIRECTION_KEY_LEFT = 4,
+    DIRECTION_KEY_RIGHT = 8,
+    DIRECTION_KEY_SMOOTH = 16
+  };
+
+
   template<>
   class Property<blendmode_t>: public PropertyBase
   {

@@ -117,6 +117,11 @@ PF::ProcessorBase* PF::new_operation( std::string op_type, PF::Layer* current_la
     //processor = new PF::Processor<PF::GradientPar,PF::Gradient>();
     processor = new_path_mask();
 
+  } else if( op_type == "shapes" ) {
+
+    //processor = new PF::Processor<PF::GradientPar,PF::Gradient>();
+    processor = new_shapes();
+
   } else if( op_type == "brightness_contrast" ) {
 
     //processor = new PF::Processor<PF::BrightnessContrastPar,PF::BrightnessContrast>();
@@ -177,6 +182,10 @@ PF::ProcessorBase* PF::new_operation( std::string op_type, PF::Layer* current_la
 
   } else if( op_type == "lensfun" ) {
     processor = new_lensfun();
+
+  } else if( op_type == "retouch" ) {
+
+    processor = new_retouch();
 
   } else if( op_type == "shadows_highlights" ) {
     processor = new_shadows_highlights();

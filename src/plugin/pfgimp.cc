@@ -30,6 +30,7 @@ extern GType vips_cimg_blur_anisotropic_get_type( void );
 extern GType vips_cimg_blur_bilateral_get_type( void );
 extern void vips_cimg_operation_init( void );
 extern GType vips_clone_stamp_get_type( void );
+extern GType vips_retouch_get_type( void );
 extern GType vips_lensfun_get_type( void );
 extern GType vips_perspective_get_type( void );
 #ifdef __cplusplus
@@ -432,6 +433,7 @@ void run(const gchar *name,
     //vips_cimg_blur_bilateral_get_type();
     //vips_cimg_operation_init();
     vips_clone_stamp_get_type();
+    vips_retouch_get_type();
     vips_lensfun_get_type();
     vips_perspective_get_type();
     if(!Glib::thread_supported())

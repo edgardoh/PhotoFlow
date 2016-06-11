@@ -84,6 +84,7 @@ extern "C" {
   extern GType vips_layer_get_type( void ); 
   extern GType vips_gmic_get_type( void ); 
   extern GType vips_clone_stamp_get_type( void );
+  extern GType vips_retouch_get_type( void );
   extern GType vips_lensfun_get_type( void );
 #ifdef __cplusplus
 }
@@ -134,6 +135,7 @@ int main (int argc, char *argv[])
   vips_layer_get_type();
   vips_gmic_get_type();
   vips_clone_stamp_get_type();
+  vips_retouch_get_type();
   vips_lensfun_get_type();
 
 #ifndef NDEBUG
