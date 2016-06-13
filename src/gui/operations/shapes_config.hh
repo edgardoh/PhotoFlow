@@ -43,61 +43,36 @@ namespace PF {
 
   class ShapesConfigGUI: public OperationConfigGUI
   {
-/*    Gtk::HBox hbox;
-    CheckBox invert_box, enable_falloff_box;
-
     Gtk::HBox curvesBox;
-
     CurveEditor falloffCurveEditor;
-*/
+
+    Gtk::HBox hbox_shapes_type;
+    RadioImageButton btn_shapes;
+   
     Gtk::VBox vbox_shape;
-    Selector shape_type_sel;
-    CheckBox invert_box;
     Slider falloff_sl;
     Slider opacity_sl;
-
-    Gtk::VBox vbox_circle;
-    Slider radius_sl;
+    Slider size_sl;
 
     Point pt_current;
     Point pt_source;
     
+    int shape_type_selected;
+    
     int mo_hit_test;
-//    int mo_shape_type;
     int mo_shape_index;
     int mo_shape_additional;
 
     bool dragging;
     int adding;
-    
+    bool editting;
+
     Line line_add;
     
-    bool editting;
     
-    int active_point_id;
-    bool center_selected;
-    double cxlast, cylast;
-
-    bool shape_resizing;
-    double shape_resizing_last_point_x, shape_resizing_last_point_y;
-
-
-    bool border_resizing;
-    double border_resizing_shape_point_x, border_resizing_shape_point_y;
-    int border_resizing_lstart;
-    float border_resizing_size_start;
-
-    bool initializing;
 
     void pt_screen2image(Point& pt);
-//    void pt_screen2image(Point& pt1, Point& pt2);
     void pt_image2screen(Point& pt);
-//    void pt_image2screen(Point& pt1, Point& pt2);
-
-    void pt_screen2image(Circle1& shape);
-    void pt_image2screen(Circle1& shape);
-    void pt_screen2image(Rect1& shape);
-    void pt_image2screen(Rect1& shape);
 
     bool get_has_source() { return true; }
     
@@ -105,8 +80,8 @@ namespace PF {
     void set_falloff(int v) { falloff_sl.get_adjustment()->set_value(v); }
     float get_opacity() { return opacity_sl.get_adjustment()->get_value()/100.f; }
     void set_opacity(float v) { opacity_sl.get_adjustment()->set_value(v*100.f); }
-    int get_size(int shape_type) { return radius_sl.get_adjustment()->get_value(); }
-    void set_size(int shape_type, int v) { radius_sl.get_adjustment()->set_value(v); }
+    int get_size(int shape_type) { return size_sl.get_adjustment()->get_value(); }
+    void set_size(int shape_type, int v) { size_sl.get_adjustment()->set_value(v); }
     
     void draw_shape(Shape* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
     void draw_node(int x, int y, PF::PixelBuffer& buf_out, bool active_point);
@@ -120,12 +95,9 @@ namespace PF {
     void draw_circle(Circle1* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
     void draw_rectangle(Rect1* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
     
-//    void drag_circle(Circle1& shape, Point prev_pt, Point curr_pt, bool lock_source);
-//    void drag_rectangle(Rect1& shape, Point prev_pt, Point curr_pt, bool lock_source);
-    
+    void add_new_shape(PF::ShapesPar* par, int shape_type, Point& initial_pos, Point& source_pos);
 
-
-    void draw_outline( PixelBuffer& buf_in, PixelBuffer& buf_out, ClosedSplineCurve& shape );
+//    void draw_outline( PixelBuffer& buf_in, PixelBuffer& buf_out, ClosedSplineCurve& shape );
 
   public:
     ShapesConfigGUI( Layer* l );
@@ -136,6 +108,7 @@ namespace PF {
     
     void set_editting(bool e) { editting = e; }
     bool get_editting() { return editting && !get_editing_flag(); }
+    int get_shape_type() { return shape_type_selected; }
 
     bool pointer_press_event( int button, double x, double y, int mod_key );
     bool pointer_release_event( int button, double x, double y, int mod_key );
@@ -143,6 +116,9 @@ namespace PF {
     bool pointer_scroll_event( int direction, int mod_key );
     bool modify_preview( PixelBuffer& buf_in, PixelBuffer& buf_out,
         float scale, int xoffset, int yoffset );
+    
+    void btn_shapes_type_clicked();
+
   };
 
 }

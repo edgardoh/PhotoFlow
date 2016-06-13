@@ -99,6 +99,30 @@ public:
 };
 
 
+class RadioImageButton: public Gtk::HBox
+{
+  std::vector<Gtk::EventBox*> event_box;
+  std::vector<Gtk::VBox*> button_box;
+  std::vector<Gtk::Image*> active_img;
+  std::vector<Gtk::Image*> inactive_img;
+
+  int btn_active;
+
+public:
+  sigc::signal<void> signal_clicked;
+
+  RadioImageButton();
+
+  int get_btn_active() { return btn_active; }
+  void set_btn_active(int n);
+  
+  int add_button( Glib::ustring active, Glib::ustring inactive, bool is_active=false );
+  
+  bool on_button_press_event( GdkEventButton* button );
+
+};
+
+
 }
 
 #endif

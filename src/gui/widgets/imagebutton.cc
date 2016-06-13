@@ -182,4 +182,79 @@ bool PF::ToggleImageButton::on_button_release_event( GdkEventButton* button )
   return true;
 }
 
+PF::RadioImageButton::RadioImageButton()
+{
+  btn_active = -1;
+}
+
+int PF::RadioImageButton::add_button( Glib::ustring active, Glib::ustring inactive, bool is_active )
+{
+  Gtk::EventBox* evt_box= new Gtk::EventBox();
+  Gtk::VBox* btn_box = new Gtk::VBox();
+  Gtk::Image* btn_active_img = new Gtk::Image();
+  Gtk::Image* btn_inactive_img = new Gtk::Image();
+
+  btn_active_img->set( active );
+  btn_inactive_img->set( inactive );
+
+  btn_box->pack_start( *btn_inactive_img, Gtk::PACK_SHRINK );
+  btn_inactive_img->show();
+
+  evt_box->add_events( Gdk::BUTTON_PRESS_MASK );
+  evt_box->add( *btn_box );
+  pack_start( *evt_box, Gtk::PACK_SHRINK );
+
+  event_box.push_back(evt_box);
+  button_box.push_back(btn_box);
+  active_img.push_back(btn_active_img);
+  inactive_img.push_back(btn_inactive_img);
+
+  if (is_active || button_box.size()==1)
+    set_btn_active(button_box.size()-1);
+
+  return (button_box.size()-1);
+}
+
+void PF::RadioImageButton::set_btn_active(int n)
+{
+  if (btn_active == n) return;
+  
+  if (btn_active >= 0) {
+    if( active_img[btn_active]->get_parent() == button_box[btn_active] )
+      button_box[btn_active]->remove( *active_img[btn_active] );
+    
+    button_box[btn_active]->pack_start( *inactive_img[btn_active], Gtk::PACK_SHRINK );
+    inactive_img[btn_active]->show();
+  }
+  
+  btn_active = n;
+  
+  if (btn_active >= 0) {
+        if( inactive_img[btn_active]->get_parent() == button_box[btn_active] )
+          button_box[btn_active]->remove( *inactive_img[btn_active] );
+    button_box[btn_active]->pack_start( *active_img[btn_active], Gtk::PACK_SHRINK );
+    active_img[btn_active]->show();
+  }
+
+}
+
+bool PF::RadioImageButton::on_button_press_event( GdkEventButton* button )
+{
+  int pressed = -1;
+  
+  for (int i=0; i < button_box.size(); i++) {
+    if ( button->window == gtk_widget_get_parent_window( ((GtkWidget*)(button_box[i]->gobj())) ) ) {
+      pressed = i;
+//      std::cout<<"PF::RadioImageButton::on_button_press_event(): button_box[i] "<<i<<std::endl;
+    }
+  }
+      
+  if (pressed >= 0 && pressed < button_box.size()) {
+    set_btn_active(pressed);
+    
+    signal_clicked.emit();
+  }
+  
+  return true;
+}
 
