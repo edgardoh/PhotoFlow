@@ -83,17 +83,12 @@ typedef struct _VipsRetouch {
    */
   PF::ProcessorBase* processor;
 
-  int group_num;
+//  int group_num;
 
 //  int stroke_num;
-  PF::Shape* stroke_num;
+  PF::Shape* shape_obj;
 } VipsRetouch;
 
-/*
-typedef struct _VipsRetouchClass {
-	VipsOperationClass parent_class;
-} VipsRetouchClass;
-*/
 typedef VipsOperationClass VipsRetouchClass;
 
 #ifdef __cplusplus
@@ -112,11 +107,17 @@ template<class T>
 static int
 vips_retouch_gen_template( VipsRegion *oreg, void *seq, void *a, void *b, gboolean *stop )
 {
-//  std::cout<<"vips_retouch_gen_template() begin"<<std::endl;
-  
   VipsRegion *ir = (VipsRegion *) seq;
   VipsRetouch *retouch = (VipsRetouch *) b;
   
+  if( !retouch->processor ) return 1;
+  if( !retouch->processor->get_par() ) return 1;
+  
+  PF::RetouchPar* par = dynamic_cast<PF::RetouchPar*>( retouch->processor->get_par() );
+  if( !par ) return 1;
+
+  if( !ir ) return( -1 );
+
 
   /* Do the actual processing
    */
@@ -124,48 +125,39 @@ vips_retouch_gen_template( VipsRegion *oreg, void *seq, void *a, void *b, gboole
   /* Output area we are building.
    */
   VipsRect *r = &oreg->valid;
+  if( vips_region_prepare( ir, r ) )
+    return( -1 );
+
   VipsRect in_area, out_area, mask_area, in_area_offset;
 
   int line_size = r->width * oreg->im->Bands;
 
   VipsRect image_area = {0, 0, ir->im->Xsize, ir->im->Ysize};
 
-  if( !retouch->processor ) return 1;
-  if( !retouch->processor->get_par() ) return 1;
 
-  PF::RetouchPar* par = dynamic_cast<PF::RetouchPar*>( retouch->processor->get_par() );
-  if( !par ) return 1;
-
-  T *p, *pin, *pout, *pbgd;
+//  T *p, *pin, *pout, *pbgd;
   
-  if( !ir )
-    return( -1 );
-  if( vips_region_prepare( ir, r ) )
-    return( -1 );
-
-  for( int y = 0; y < r->height; y++ ) {
+/*  for( int y = 0; y < r->height; y++ ) {
     p = (T*)VIPS_REGION_ADDR( ir, r->left, r->top + y );
     pout = (T*)VIPS_REGION_ADDR( oreg, r->left, r->top + y );
     memcpy( pout, p, sizeof(T)*line_size );
   }
-
-//  std::cout<<"vips_retouch_gen_template()"<<std::endl;
-
-  Shape* shape = retouch->stroke_num;
+*/
+  vips_region_copy (ir, oreg, r, r->left, r->top);
+  
+  Shape* shape = retouch->shape_obj;
   
   if (shape == NULL)
-  return( 0 );
-//  std::cout<<"vips_retouch_gen_template() 1"<<std::endl;
-
+    return( 0 );
 
   // out area is shape dest area intersect with output area
   shape->get_mask_rect(&mask_area);
   vips_rect_intersectrect( r, &mask_area, &out_area );
   if (out_area.width < 1 || out_area.height < 1)
-  return( 0 );
+    return( 0 );
 
-  int delta_row = shape->get_source_point().get_y()/*/par->get_scale_factor()*/;
-  int delta_col = shape->get_source_point().get_x()/*/par->get_scale_factor()*/;
+  int delta_row = shape->get_source_point().get_y();
+  int delta_col = shape->get_source_point().get_x();
   
   // in area is outarea offset by shape source and intersect with image area
   in_area_offset.width = out_area.width;
@@ -174,7 +166,7 @@ vips_retouch_gen_template( VipsRegion *oreg, void *seq, void *a, void *b, gboole
   in_area_offset.left = out_area.left + delta_col;
   vips_rect_intersectrect( &in_area_offset, &image_area, &in_area );
   if (in_area.width < 1 || in_area.height < 1)
-  return( 0 );
+    return( 0 );
 
   float *mask = shape->get_mask();
   if (mask == NULL)
@@ -182,7 +174,6 @@ vips_retouch_gen_template( VipsRegion *oreg, void *seq, void *a, void *b, gboole
   
   if( vips_region_prepare( ir, &in_area ) )
     return( -1 );
-//  std::cout<<"vips_retouch_gen_template() 3"<<std::endl;
 
   const int width = std::min(in_area.width, out_area.width);
   const int height = std::min(in_area.height, out_area.height);
@@ -193,15 +184,19 @@ vips_retouch_gen_template( VipsRegion *oreg, void *seq, void *a, void *b, gboole
   const int offset_left = out_area.left + (in_area.left - in_area_offset.left);
   const int offset_top = out_area.top + (in_area.top - in_area_offset.top);
   
+  T *pin, *pout;
+  
   for( int y = 0; y < height; y++ ) {
     pin = (T*)VIPS_REGION_ADDR( ir, in_area.left, in_area.top + y );
     pout = (T*)VIPS_REGION_ADDR( oreg, offset_left, offset_top + y );
+    const int y_mask = offset_top + y;
+    float* pmask = mask + (y_mask-mask_area.top)*mask_area.width;
     
     for( int x = 0; x < width; x++, pin+=ch, pout+=ch ) {
-      int x_mask = offset_left+x;
-      int y_mask = offset_top + y;
-      const float f = mask[(y_mask-mask_area.top)*mask_area.width+(x_mask-mask_area.left)];
-        if (f > 0.) {
+      const int x_mask = offset_left + x;
+//      const float f = mask[(y_mask-mask_area.top)*mask_area.width+(x_mask-mask_area.left)];
+      const float f = pmask[(x_mask-mask_area.left)];
+      if (f > 0.) {
         for (int c = 0; c < ch; c++)
           pout[c] = (pin[c] * f) + (pout[c] * (1.f - f));
       }
@@ -332,34 +327,34 @@ vips_retouch_class_init( VipsRetouchClass *klass )
 		    G_STRUCT_OFFSET( VipsRetouch, processor ) );
   argid += 1;
 
-  VIPS_ARG_INT( klass, "group_num", argid,
+/*  VIPS_ARG_INT( klass, "group_num", argid,
       _( "StrokeNum" ),
       _( "Stroke number" ),
       VIPS_ARGUMENT_REQUIRED_INPUT,
     G_STRUCT_OFFSET( VipsRetouch, group_num ),
     -1, 1000, -1);
   argid += 1;
-
+*/
 /*  VIPS_ARG_INT( klass, "stroke_num", argid,
       _( "StrokeNum" ),
       _( "Stroke number" ),
       VIPS_ARGUMENT_REQUIRED_INPUT,
     G_STRUCT_OFFSET( VipsRetouch, stroke_num ),
     -1, 1000, -1);*/
-  VIPS_ARG_POINTER( klass, "stroke_num", argid, 
-        _( "StrokeNum" ),
-        _( "Stroke number" ),
+  VIPS_ARG_POINTER( klass, "shape_obj", argid, 
+        _( "ShapeObj" ),
+        _( "Shape Object" ),
         VIPS_ARGUMENT_REQUIRED_INPUT,
-        G_STRUCT_OFFSET( VipsRetouch, stroke_num ) );
+        G_STRUCT_OFFSET( VipsRetouch, shape_obj ) );
   argid += 1;
 }
 
 static void
 vips_retouch_init( VipsRetouch *retouch )
 {
-  retouch->group_num = -1;
+//  retouch->group_num = -1;
 //  retouch->stroke_num = -1;
-  retouch->stroke_num = NULL;
+  retouch->shape_obj = NULL;
 }
 
 /**
@@ -371,13 +366,13 @@ vips_retouch_init( VipsRetouch *retouch )
  * Returns: 0 on success, -1 on error.
  */
 int
-vips_retouch( VipsImage* in, VipsImage **out, PF::ProcessorBase* proc, int group_num, /*int*/PF::Shape* stroke_num, ...)
+vips_retouch( VipsImage* in, VipsImage **out, PF::ProcessorBase* proc, /*int group_num,*/ /*int*/PF::Shape* shape_obj, ...)
 {
   va_list ap;
   int result;
 
-  va_start( ap, stroke_num );
-  result = vips_call_split( "retouch", ap, in, out, proc, group_num, stroke_num );
+  va_start( ap, shape_obj );
+  result = vips_call_split( "retouch", ap, in, out, proc, /*group_num,*/ shape_obj );
   va_end( ap );
 
   return( result );

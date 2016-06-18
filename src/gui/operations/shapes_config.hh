@@ -74,7 +74,7 @@ namespace PF {
     void pt_screen2image(Point& pt);
     void pt_image2screen(Point& pt);
 
-    bool get_has_source() { return true; }
+    virtual bool get_has_source() { return true; }
     
     int get_falloff() { return falloff_sl.get_adjustment()->get_value(); }
     void set_falloff(int v) { falloff_sl.get_adjustment()->set_value(v); }
@@ -93,6 +93,7 @@ namespace PF {
     void draw_line(Line* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
     
     void draw_circle(Circle1* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
+    void draw_ellipse(Ellipse* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
     void draw_rectangle(Rect1* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
     
     void add_new_shape(PF::ShapesPar* par, int shape_type, Point& initial_pos, Point& source_pos);

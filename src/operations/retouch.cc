@@ -30,7 +30,7 @@
 #include "retouch.hh"
 
 int
-vips_retouch( VipsImage* in, VipsImage **out, PF::ProcessorBase* proc, int group_num, PF::Shape* stroke_num, ...);
+vips_retouch( VipsImage* in, VipsImage **out, PF::ProcessorBase* proc, /*int group_num,*/ PF::Shape* shape_obj, ...);
 
 
 
@@ -51,16 +51,14 @@ PF::RetouchPar::~RetouchPar()
 VipsImage* PF::RetouchPar::build(std::vector<VipsImage*>& in, int first, 
 				VipsImage* imap, VipsImage* omap, unsigned int& level)
 {
-  scale_factor = 1;
+  set_scale_factor(1);
   for(unsigned int l = 0; l < level; l++ ) {
-    scale_factor *= 2;
+    set_scale_factor( get_scale_factor() * 2 );
   }
 
   if( (in.size() < 1) || (in[0] == NULL) )
     return NULL;
 
-//  std::cout<<"PF::RetouchPar::build()"<<std::endl;
-  
   VipsImage* outnew = in[0];
   PF_REF( outnew, "RetouchPar::build(): initial outnew ref" );
 
@@ -87,6 +85,14 @@ VipsImage* PF::RetouchPar::build(std::vector<VipsImage*>& in, int first,
   
       }
       break;
+    case PF::Shape::ellipse:
+      {
+        Ellipse* ellip = new Ellipse();
+        *ellip = get_ellipses()[shape_index];
+        shape = ellip;
+  
+      }
+      break;
     case PF::Shape::rectangle:
       {
         Rect1* rect = new Rect1();
@@ -96,11 +102,11 @@ VipsImage* PF::RetouchPar::build(std::vector<VipsImage*>& in, int first,
       break;
     }
     
-    shape->scale(scale_factor);
+    shape->scale(get_scale_factor());
     shape->build_mask(get_shapes_falloff_curve());
           
     VipsImage* tempimg = outnew;
-    if( vips_retouch( tempimg, &outnew, get_processor(), shape_type, /*shape_index*/shape, NULL ) )
+    if( vips_retouch( tempimg, &outnew, get_processor(), /*shape_type,*/ /*shape_index*/shape, NULL ) )
       return NULL;
     PF_UNREF( tempimg, "RetouchPar::build(): tempimg unref" );
       

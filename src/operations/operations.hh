@@ -70,7 +70,7 @@ namespace PF
   ProcessorBase* new_lensfun();
   ProcessorBase* new_volume();
   ProcessorBase* new_path_mask();
-  ProcessorBase* new_shapes();
+  ProcessorBase* new_shapes_mask();
   ProcessorBase* new_shadows_highlights();
   ProcessorBase* new_defringe();
   ProcessorBase* new_split_details();

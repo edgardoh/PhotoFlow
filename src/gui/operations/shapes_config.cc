@@ -59,6 +59,10 @@ void PF::ShapesConfigGUI::draw_shape(Shape* shape, PF::PixelBuffer& buf_in, PF::
     Circle1* circle = dynamic_cast<Circle1*>(shape);
     draw_circle(circle, buf_in, buf_out, hit_t, hit_additional);
   }
+  if (shape->get_type() == PF::Shape::ellipse) {
+    Ellipse* ellipse = dynamic_cast<Ellipse*>(shape);
+    draw_ellipse(ellipse, buf_in, buf_out, hit_t, hit_additional);
+  }
   if (shape->get_type() == PF::Shape::rectangle) {
     Rect1* rect = dynamic_cast<Rect1*>(shape);
     draw_rectangle(rect, buf_in, buf_out, hit_t, hit_additional);
@@ -92,6 +96,9 @@ void PF::ShapesConfigGUI::draw_line(Line* shape, PF::PixelBuffer& buf_in, PF::Pi
 
    cr->set_source_rgb(1.0, .0, .0);
 */
+  if (shape->get_has_source()) {
+    std::cout<<"PF::ShapesConfigGUI::draw_line(): shape->get_source_point() "<<shape->get_source_point().get_x()<<std::endl;
+  }
   Point pt1;
   Point pt2;
   Point a, b, c, d;
@@ -252,6 +259,72 @@ void PF::ShapesConfigGUI::draw_circle(Circle1* shape, PF::PixelBuffer& buf_in, P
   }
 }
 
+void PF::ShapesConfigGUI::draw_ellipse(Ellipse* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional)
+{
+  Point center, radius;
+  int selected;
+  const int falloff_x = shape->get_falloff_x();
+  const int falloff_y = shape->get_falloff_y();
+  
+  center = shape->get_point();
+  radius.set(shape->get_radius_x(), shape->get_radius_y());
+
+  pt_image2screen( center );
+  pt_image2screen( radius );
+  
+  if (hit_t == PF::Shape::hit_shape || hit_t == PF::Shape::hit_source)
+    buf_out.draw_ellipse( center.get_x(), center.get_y(), radius.get_x(), radius.get_y(), 0, 255, 0, 0 );
+  else
+    buf_out.draw_ellipse( center.get_x(), center.get_y(), radius.get_x(), radius.get_y(), 0, buf_in );
+
+  if (falloff_x > 0) {
+    Point radiusf;
+    radiusf.set(shape->get_radius_x() + falloff_x, shape->get_radius_y() + falloff_y);
+    pt_image2screen( radiusf );
+  
+    if (hit_t == PF::Shape::hit_falloff || hit_t == PF::Shape::hit_source)
+      buf_out.draw_ellipse( center.get_x(), center.get_y(), radiusf.get_x(), radiusf.get_y(), 0, 255, 0, 0 );
+    else
+      buf_out.draw_ellipse( center.get_x(), center.get_y(), radiusf.get_x(), radiusf.get_y(), 0, buf_in );
+    
+/*    // draw falloff nodes
+    if (hit_t != PF::Shape::hit_none) {
+      if (hit_t == PF::Shape::hit_falloff_node) {
+        selected = hit_additional+1;
+      }
+      else
+        selected = 0;
+      
+      draw_node(center.get_x(), center.get_y()-radiusf.get_y(), buf_out, (selected==1));
+      draw_node(center.get_x()+radiusf.get_x(), center.get_y(), buf_out, (selected==2));
+      draw_node(center.get_x(), center.get_y()+radiusf.get_y(), buf_out, (selected==3));
+      draw_node(center.get_x()-radiusf.get_x(), center.get_y(), buf_out, (selected==4));
+    }
+*/
+  }
+  
+  // draw nodes
+  if (hit_t != PF::Shape::hit_none) {
+    if (hit_t == PF::Shape::hit_node) {
+      selected = hit_additional+1;
+    }
+    else
+      selected = 0;
+    
+    draw_node(center.get_x(), center.get_y()-radius.get_y(), buf_out, (selected==1));
+    draw_node(center.get_x()+radius.get_x(), center.get_y(), buf_out, (selected==2));
+    draw_node(center.get_x(), center.get_y()+radius.get_y(), buf_out, (selected==3));
+    draw_node(center.get_x()-radius.get_x(), center.get_y(), buf_out, (selected==4));
+  }
+
+  if (shape->get_has_source()) {
+    Ellipse source = *shape;
+    source.set_has_source(false);
+    source.offset(shape->get_source_point());
+    draw_ellipse(&source, buf_in, buf_out,  hit_t, hit_additional);
+  }
+}
+
 void PF::ShapesConfigGUI::draw_rectangle(Rect1* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional)
 {
   Point pt1, pt2;
@@ -397,6 +470,7 @@ PF::ShapesConfigGUI::ShapesConfigGUI( Layer* layer, const Glib::ustring& title, 
   btn_shapes.add_button( PF::PhotoFlow::Instance().get_data_dir()+"/icons/tools/cursor-active.png",PF::PhotoFlow::Instance().get_data_dir()+"/icons/tools/cursor-inactive.png" );
   btn_shapes.add_button( PF::PhotoFlow::Instance().get_data_dir()+"/icons/tools/line-active.png",PF::PhotoFlow::Instance().get_data_dir()+"/icons/tools/line-inactive.png" );
   btn_shapes.add_button( PF::PhotoFlow::Instance().get_data_dir()+"/icons/tools/circle-active.png",PF::PhotoFlow::Instance().get_data_dir()+"/icons/tools/circle-inactive.png" );
+  btn_shapes.add_button( PF::PhotoFlow::Instance().get_data_dir()+"/icons/tools/ellipse-active.png",PF::PhotoFlow::Instance().get_data_dir()+"/icons/tools/ellipse-inactive.png" );
   btn_shapes.add_button( PF::PhotoFlow::Instance().get_data_dir()+"/icons/tools/rectangle-active.png",PF::PhotoFlow::Instance().get_data_dir()+"/icons/tools/rectangle-inactive.png" );
 
   hbox_shapes_type.pack_end( btn_shapes, Gtk::PACK_SHRINK );
@@ -477,11 +551,18 @@ void PF::ShapesConfigGUI::add_new_shape(PF::ShapesPar* par, int shape_type, Poin
   }
    break;
   case PF::ShapesPar::type_circle:
-  {
-    Circle1 shape( initial_pos, get_size(get_shape_type()), get_opacity(), get_falloff(), get_has_source(), source_pos );
-    
-    par->add_shape(shape);
-  }
+    {
+      Circle1 shape( initial_pos, get_size(get_shape_type()), get_opacity(), get_falloff(), get_has_source(), source_pos );
+      
+      par->add_shape(shape);
+    }
+    break;
+  case PF::ShapesPar::type_ellipse:
+    {
+      Ellipse shape( initial_pos, get_size(get_shape_type()), get_opacity(), get_falloff(), get_has_source(), source_pos );
+      
+      par->add_shape(shape);
+    }
     break;
   case PF::ShapesPar::type_rectangle:
   {
@@ -604,6 +685,7 @@ bool PF::ShapesConfigGUI::pointer_press_event( int button, double sx, double sy,
     {
     case PF::ShapesPar::type_line:
     case PF::ShapesPar::type_circle:
+    case PF::ShapesPar::type_ellipse:
     case PF::ShapesPar::type_rectangle:
       {
         Point pt(sx, sy);

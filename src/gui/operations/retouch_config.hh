@@ -32,47 +32,18 @@
 
 #include <gtkmm.h>
 
-//#include "../operation_config_gui.hh"
 #include "shapes_config.hh"
 
 
 namespace PF {
 
-  class RetouchConfigGUI: public ShapesConfigGUI /*OperationConfigGUI*/
+  class RetouchConfigGUI: public ShapesConfigGUI
 {
-/*  Gtk::VBox controlsBox;
-
-  Slider stamp_size;
-  Slider stamp_opacity;
-  Slider stamp_smoothness;
-  Gtk::Button undoButton;
-
-  double mouse_x, mouse_y;
-  double srcpt_row, srcpt_col;
-  double srcpt_dx, srcpt_dy;
-  bool srcpt_ready;
-  bool srcpt_changed;
-  bool stroke_started;
-*/
 public:
   RetouchConfigGUI( Layer* l );
 
-/*  void open();
+  bool get_has_source() { return true; }
 
-  unsigned int get_pen_size() { return 100; };
-  float get_pen_opacity() { return 0.5; }
-
-  void start_stroke( double x, double y );
-  void draw_point( double x, double y );
-
-  void on_undo();
-
-  bool pointer_press_event( int button, double x, double y, int mod_key );
-  bool pointer_release_event( int button, double x, double y, int mod_key );
-  bool pointer_motion_event( int button, double x, double y, int mod_key );
-  bool modify_preview( PixelBuffer& buf_in, PixelBuffer& buf_out,
-      float scale, int xoffset, int yoffset );
-      */
 };
 
 }

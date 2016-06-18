@@ -354,17 +354,25 @@ float PF::Shape::point_in_ellipse(int x, int y, int h, int v, float rx2, float r
   return ( ((float)((x-h)*(x-h)))/rx2 ) + ( ((float)((y-v)*(y-v)))/ry2 );
 }
 
-// -----------------------------------
-// Line
-// -----------------------------------
-
-void PF::Line::expand_falloff(int n)
+void PF::Shape::get_segment_bounding_rect(Point& pt1, Point& pt2, VipsRect* rc)
 {
-  set_falloff(get_falloff()+n);
+  rc->left = std::min(pt1.get_x(), pt2.get_x());
+  rc->top = std::min(pt1.get_y(), pt2.get_y());
+  rc->width = std::max(pt1.get_x(), pt2.get_x()) - rc->left + 1;
+  rc->height = std::max(pt1.get_y(), pt2.get_y()) - rc->top + 1;
+}
+
+void PF::Shape::get_segment_bounding_rect(Point& pt1, Point& pt2, int expand, VipsRect* rc)
+{
+  get_segment_bounding_rect(pt1, pt2, rc);
+  rc->left -= expand;
+  rc->top -= expand;
+  rc->width += expand*2;
+  rc->height += expand*2;
 }
 
 // returns a rect, result of expanding a given line by amount
-void PF::Line::get_expanded_rec_from_line(Point& pt1, Point& pt2, int amount, Point& a, Point& b, Point& c, Point& d)
+void PF::Shape::get_expanded_rec_from_line(Point& pt1, Point& pt2, int amount, Point& a, Point& b, Point& c, Point& d)
 {
   float dx = pt1.get_x()-pt2.get_x();
   float dy = pt1.get_y()-pt2.get_y();
@@ -378,6 +386,16 @@ void PF::Line::get_expanded_rec_from_line(Point& pt1, Point& pt2, int amount, Po
   d.set( pt2.get_x() + amount_y, pt2.get_y() - amount_x);
   c.set( pt2.get_x() - amount_y, pt2.get_y() + amount_x);
 
+}
+
+
+// -----------------------------------
+// Line
+// -----------------------------------
+
+void PF::Line::expand_falloff(int n)
+{
+  set_falloff(get_falloff()+n);
 }
 
 void PF::Line::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source)
@@ -458,25 +476,10 @@ void PF::Line::get_falloff_rect(VipsRect* rc)
   rc->height += get_falloff()*2;
 }
 
-void PF::Line::get_segment_bounding_rect(Point& pt1, Point& pt2, VipsRect* rc)
-{
-  rc->left = std::min(pt1.get_x(), pt2.get_x());
-  rc->top = std::min(pt1.get_y(), pt2.get_y());
-  rc->width = std::max(pt1.get_x(), pt2.get_x()) - rc->left + 1;
-  rc->height = std::max(pt1.get_y(), pt2.get_y()) - rc->top + 1;
-}
-
-void PF::Line::get_segment_bounding_rect(Point& pt1, Point& pt2, int expand, VipsRect* rc)
-{
-  get_segment_bounding_rect(pt1, pt2, rc);
-  rc->left -= expand;
-  rc->top -= expand;
-  rc->width += expand*2;
-  rc->height += expand*2;
-}
-
 void PF::Line::build_mask(SplineCurve& scurve)
 {
+  std::cout<<"PF::Line::build_mask()"<<std::endl;
+  
   // free mask if already exists
   if (mask != NULL) {
     free(mask);
@@ -612,6 +615,8 @@ void PF::Circle1::get_falloff_rect(VipsRect* rc)
 
 void PF::Circle1::build_mask(SplineCurve& scurve)
 {
+  std::cout<<"PF::Circle1::build_mask()"<<std::endl;
+  
   if (mask != NULL) {
     free(mask);
     mask = NULL;
@@ -652,6 +657,246 @@ void PF::Circle1::build_mask(SplineCurve& scurve)
         const float f2 = f * f * get_opacity();
         const float f2s = scurve.get_value(f2);
         pmask[x] = f2s;
+      }
+    }
+  }
+
+}
+
+// -----------------------------------
+// Ellipse
+// -----------------------------------
+
+int PF::Ellipse::get_falloff_y() 
+{
+  int falloff = get_falloff_x() * ((float)get_radius_y()/(float)get_radius_x());
+  
+  if (falloff <= 0 && get_falloff_x() > 0) falloff = 1;
+  
+  return falloff; 
+}
+
+void PF::Ellipse::expand(int n)
+{ 
+  int ny = n * ((float)get_radius_y()/(float)get_radius_x());
+  
+  if (ny <= 0 && n > 0) ny = 1;
+  
+  set_radius_y(get_radius_y()+ny); 
+  set_size(get_size()+n); 
+}
+
+void PF::Ellipse::expand_falloff(int n)
+{
+  set_falloff(get_falloff()+n);
+}
+
+int PF::Ellipse::hit_test(Point& pt, int& additional)
+{
+  VipsRect rc;  
+  get_falloff_rect(&rc);
+  
+  // inside the falloff rect
+  if ( hit_test_rect(pt, &rc) ) {
+    const int radius_x = get_radius_x();
+    const int radius_y = get_radius_y();
+    Point& center = get_point();
+    Point pt1;
+    
+    const float Rfx2 = ( radius_x + get_falloff_x() ) * ( radius_x + get_falloff_y() );
+    const float Rfy2 = ( radius_y + get_falloff_x() ) * ( radius_y + get_falloff_y() );
+    const float dx2 = ( pt.get_x() - center.get_x() + PF::Shape::hit_test_delta ) * ( pt.get_x() - center.get_x() + PF::Shape::hit_test_delta );
+    const float dy2 = ( pt.get_y() - center.get_y() + PF::Shape::hit_test_delta ) * ( pt.get_y() - center.get_y() + PF::Shape::hit_test_delta );
+    const float fp = dx2/Rfx2 + dy2/Rfy2;
+
+    // inside falloff perimeter
+    if ( fp <= 1.f ) {
+      // check nodes
+      pt1.set( center.get_x(), (center.get_y() - radius_y) );
+      if ( hit_test_node(pt, pt1) ) {
+        additional = 0;
+        return hit_node;
+      }
+      pt1.set( center.get_x(), (center.get_y() + radius_y) );
+      if ( hit_test_node(pt, pt1) ) {
+        additional = 2;
+        return hit_node;
+      }
+      pt1.set( (center.get_x() + radius_x), center.get_y() );
+      if ( hit_test_node(pt, pt1) ) {
+        additional = 1;
+        return hit_node;
+      }
+      pt1.set( (center.get_x() - radius_x), center.get_y() );
+      if ( hit_test_node(pt, pt1) ) {
+        additional = 3;
+        return hit_node;
+      }
+
+      const float Rx2 = radius_x * radius_x;
+      const float Ry2 = radius_y * radius_y;
+      const float dxs2 = ( pt.get_x() - center.get_x() - PF::Shape::hit_test_delta ) * ( pt.get_x() - center.get_x() - PF::Shape::hit_test_delta );
+      const float dys2 = ( pt.get_y() - center.get_y() - PF::Shape::hit_test_delta ) * ( pt.get_y() - center.get_y() - PF::Shape::hit_test_delta );
+      const float fs = dxs2/Rx2 + dys2/Ry2;
+
+      // inside shape 
+      if ( fs <= 1.f )
+        return hit_shape;
+
+      // inside shape perimeter
+      if ( dx2/Rx2 + dy2/Ry2 <= 1.f ) {
+        additional = 0;
+        return hit_segment;
+      }
+      
+      // default is falloff
+      return hit_falloff;
+    }
+  }
+  
+  // check the source
+  if ( get_has_source() ) {
+    Ellipse shape = *this;
+    shape.set_has_source(false);
+    shape.offset(get_source_point());
+    int hit_t = shape.hit_test(pt, additional);
+    if ( hit_t != hit_none) hit_t = hit_source;
+    
+    return hit_t;
+  }
+
+  return hit_none;
+}
+
+void PF::Ellipse::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source)
+{
+//  std::cout<<"PF::Ellipse::offset(): get_point(0).get_x(): "<<get_point(0).get_x()<<", get_point(0).get_y(): "<<get_point(0).get_y()<<std::endl;
+//  std::cout<<"PF::Ellipse::offset(): get_point(1).get_x(): "<<get_point(1).get_x()<<", get_point(1).get_y(): "<<get_point(1).get_y()<<std::endl;
+  
+  switch (hit_t)
+  {
+  case PF::Shape::hit_node:
+    if (additional == 0) {
+      set_radius_y(get_radius_y() + (prev.get_y() - curr.get_y()));
+    }
+    else if (additional == 1) {
+      set_size(get_radius_x() + (curr.get_x() - prev.get_x()));
+    }
+    else if (additional == 2) {
+      set_radius_y(get_radius_y() + (curr.get_y() - prev.get_y()));
+    }
+    else if (additional == 3) {
+      set_size(get_radius_x() + (prev.get_x() - curr.get_x()));
+    }
+    break;
+  case PF::Shape::hit_segment:
+    break;
+  case PF::Shape::hit_falloff_segment:
+  case PF::Shape::hit_falloff_node:
+  default:
+    PF::Shape::offset(hit_t, prev, curr, additional, lock_source);
+    break;
+  }
+
+//  std::cout<<"PF::Ellipse::offset(): get_point(0).get_x(): "<<get_point(0).get_x()<<", get_point(0).get_y(): "<<get_point(0).get_y()<<std::endl;
+//  std::cout<<"PF::Ellipse::offset(): get_point(1).get_x(): "<<get_point(1).get_x()<<", get_point(1).get_y(): "<<get_point(1).get_y()<<std::endl;
+  
+}
+
+void PF::Ellipse::get_rect(VipsRect* rc)
+{
+  const int Rx = get_radius_x();
+  const int Ry = get_radius_y();
+  rc->left = get_point().get_x()-Rx;
+  rc->top = get_point().get_y()-Ry;
+  rc->width = Rx*2;
+  rc->height = Ry*2;
+}
+
+void PF::Ellipse::get_falloff_rect(VipsRect* rc)
+{
+  get_rect(rc);
+  
+  rc->left -= get_falloff_x();
+  rc->top -= get_falloff_y();
+  rc->width += get_falloff_x()*2;
+  rc->height += get_falloff_y()*2;
+}
+
+void PF::Ellipse::build_mask(SplineCurve& scurve)
+{
+  std::cout<<"PF::Ellipse::build_mask()"<<std::endl;
+  
+  if (mask != NULL) {
+    free(mask);
+    mask = NULL;
+  }
+  
+  // get bounding rect
+  VipsRect rc;
+  get_falloff_rect(&rc);
+  
+  // nothing to return
+  if (rc.width < 1 || rc.height < 1) return;
+  
+  // save offset
+  Point pt_offset(-rc.left, -rc.top);
+  
+  // offset to (0, 0)
+  rc.left = rc.top = 0;
+  
+  // alloc mask
+  mask = (float*)malloc(rc.width * rc.height * sizeof(float));
+  memset(mask, 0, rc.width * rc.height * sizeof(float));
+
+  // populate the buffer
+  Point center(get_point());
+  center.offset(pt_offset);
+  
+  // n Defines the bounds of the horizontal lines which fill the ellipse.
+  const int w = get_radius_x();
+  const int h = get_radius_y();
+  const int wf = w+get_falloff_x();
+  const int hf = h+get_falloff_y();
+  int n = w;
+  int nf = n+get_falloff_x();
+  const float w2 = w*w;
+  const float h2 = h*h;
+  const float wf2 = wf*wf;
+  const float hf2 = hf*hf;
+  const float scale = ( w2 / wf2 );
+  const float scale_1 = 1.f / (1.f-scale);
+
+  // expand from the center
+  for (int y = 0; y < hf; y++) {
+    // The current top and bottom rows.
+    const int ra = center.get_y() + y;
+    const int rb = center.get_y() - y;
+  
+    // This loop removes 1 from n until it is within the shape
+    const int y2 = y*y;
+    while ( wf2*(hf2-y2) < hf2*nf*nf && nf>0 ) --nf;
+    while ( w2*(h2-y2) < h2*n*n && n>0 ) --n;
+  
+    // Draws horizontal line from -n to n across the ellipse
+    float* pmask1 = mask + ra * rc.width;
+    float* pmask2 = mask + rb * rc.width;
+    
+    for (int x = center.get_x() - nf, x2 = center.get_x() + nf; x <= center.get_x(); x++, x2--) {
+      if (x >= center.get_x() - n && y <= h) {
+        pmask1[x] = pmask2[x] = pmask1[x2] = pmask2[x2] = get_opacity();
+     }
+      else {
+        const float f = ( (float)((x-center.get_x())*(x-center.get_x())) / wf2 + (float)(y*y) / hf2 ) - scale;
+        const float f1 = 1.f - ( f * scale_1 );
+        if (f1 > 1.f || f1 < 0.f) {
+          std::cout<<"PF::Ellipse::build_mask(): f out of range!!! f: "<<f<<", x: "<<x<<", n: "<<n<<", nf: "<<nf<<std::endl;
+        }
+        else {
+          const float f2 = f1 * f1 * get_opacity();
+          const float f2s = scurve.get_value(f2);
+          pmask1[x] = pmask2[x] = pmask1[x2] = pmask2[x2] = f2s;
+        }
       }
     }
   }
@@ -942,6 +1187,8 @@ void PF::Rect1::lines_intersects(Point& pt1, Point& pt2, Point& pt3, Point& pt4,
 
 void PF::Rect1::build_mask(SplineCurve& scurve)
 {
+  std::cout<<"PF::Rect1::build_mask()"<<std::endl;
+  
   if (mask != NULL) {
     free(mask);
     mask = NULL;
@@ -1099,6 +1346,9 @@ PF::Shape* PF::ShapesPar::get_shape(int index)
     case PF::ShapesPar::type_circle:
       shape = &(get_circles()[s_index]);
       break;
+    case PF::ShapesPar::type_ellipse:
+      shape = &(get_ellipses()[s_index]);
+      break;
     case PF::ShapesPar::type_rectangle:
       shape = &(get_rectangles1()[s_index]);
       break;
@@ -1118,6 +1368,12 @@ void PF::ShapesPar::add_shape(Circle1& shape)
   shapes_order.get().push_back( std::pair<int,int>(type_circle, circles.get().size()-1) );
 }
 
+void PF::ShapesPar::add_shape(Ellipse& shape)
+{
+  ellipses.get().push_back(shape);
+  shapes_order.get().push_back( std::pair<int,int>(type_ellipse, ellipses.get().size()-1) );
+}
+
 void PF::ShapesPar::add_shape(Rect1& shape)
 {
   rectangles1.get().push_back(shape);
@@ -1130,18 +1386,144 @@ PF::ShapesPar::ShapesPar():
                 falloff_curve( "falloff_curve", this ), 
                 lines("lines", this),
                 circles("circles", this),
+                ellipses("ellipses", this),
                 rectangles1("rectangles1", this),
                 shapes_order("shapes_order", this)
 {
+  shapes_algo = new PF::Processor<PF::ShapesAlgoPar,PF::ShapesAlgoProc>();
+  
   set_type( "shapes" );
   set_default_name( _("shapes") );
+}
+
+PF::ShapesAlgoPar::ShapesAlgoPar():
+                OpParBase()
+{
+  
+  set_type( "shapes_algo" );
+  set_default_name( _("shapes_algo") );
+}
+
+void PF::ShapesAlgoPar::clear_shapes()
+{
+  lines.clear();
+  circles.clear();
+  ellipses.clear();
+  rectangles1.clear();
+  shapes_order.clear();
+
 }
 
 VipsImage* PF::ShapesPar::build(std::vector<VipsImage*>& in, int first,
     VipsImage* imap, VipsImage* omap,
     unsigned int& level)
 {
-  VipsImage* out = PF::OpParBase::build( in, first, imap, omap, level );
+  std::cout<<"PF::ShapesPar::build()"<<std::endl;
+  
+  if( (in.size()<1) || (in[0]==NULL) )
+    return NULL;
+
+  VipsImage* srcimg = in[0];
+
+  std::vector<VipsImage*> in2;
+
+  scale_factor = 1;
+  for(unsigned int l = 0; l < level; l++ ) {
+    scale_factor *= 2;
+  }
+
+  if (shapes_algo == NULL) {
+    std::cout<<"PF::ShapesPar::build() (shapes_algo == NULL)"<<std::endl;
+    return NULL;
+  }
+  if (shapes_algo->get_par() == NULL) {
+    std::cout<<"PF::ShapesPar::build() (shapes_algo->get_par() == NULL)"<<std::endl;
+    return NULL;
+  }
+  ShapesAlgoPar* shapes_algo_par = dynamic_cast<ShapesAlgoPar*>( shapes_algo->get_par() );
+  if (shapes_algo_par == NULL) {
+    std::cout<<"PF::ShapesPar::build() (shapes_algo_par == NULL)"<<std::endl;
+    return NULL;
+  }
+
+//  Shape* shape = NULL;
+//  Shape* shape_new = NULL;
+  shapes_algo_par->clear_shapes();
+  
+  for( unsigned int shape_index = 0; shape_index < get_shapes_order().size(); shape_index++) {
+    int shape_type = get_shapes_order()[shape_index].first;
+//    int shape_index = get_shapes_order()[shape_index].second;
+//    shape = get_shape(shape_index);
+//    *shape_new = *shape;
+    int shape_new_index = shapes_algo_par->add_new_shape(get_shape(shape_index));
+    std::cout<<"PF::ShapesPar::build() shape_new_index: "<<shape_new_index<<std::endl;
+    Shape* shape_new = shapes_algo_par->get_shape(shape_new_index);
+//    shape = get_shape(shape_index);
+//    *shape_new = *get_shape(shape_index);
+/*    Line line;
+    Circle1 circ;
+    Ellipse ellip;
+    Rect1 rect;
+   
+    switch (shape_type)
+    {
+    case PF::Shape::line:
+      {
+//        Line* line = new Line();
+        line = get_lines()[shape_index];
+        shape_new = &line;
+      }
+      break;
+    case PF::Shape::circle:
+      {
+//        Circle1* circ = new Circle1();
+        circ = get_circles()[shape_index];
+        shape_new = &circ;
+  
+      }
+      break;
+    case PF::Shape::ellipse:
+      {
+//        Ellipse* ellip = new Ellipse();
+        ellip = get_ellipses()[shape_index];
+        shape_new = &ellip;
+  
+      }
+      break;
+    case PF::Shape::rectangle:
+      {
+//        Rect1* rect = new Rect1();
+        rect = get_rectangles1()[shape_index];
+        shape_new = &rect;
+      }
+      break;
+    }
+    */
+    shape_new->scale(scale_factor);
+    shape_new->build_mask(get_shapes_falloff_curve());
+    
+    if (shape_new->get_mask() == NULL)
+      std::cout<<"PF::ShapesPar::build() shape_new->get_mask() == NULL)"<<std::endl;
+    if (shapes_algo_par->get_shape(shape_new_index)->get_mask() == NULL)
+      std::cout<<"PF::ShapesPar::build() (shapes_algo_par->get_shape(shape_new_index)->get_mask() == NULL)"<<std::endl;
+    if (get_shape(shape_index)->get_mask() != NULL)
+      std::cout<<"PF::ShapesPar::build() (get_shape(shape_index)->get_mask() != NULL)"<<std::endl;
+
+  }
+
+  shapes_algo_par->set_image_hints( srcimg );
+  shapes_algo_par->set_format( get_format() );
+  in2.clear();
+  in2.push_back( srcimg );
+  VipsImage* out = shapes_algo_par->build( in2, 0, NULL, NULL, level );
+  PF_UNREF( srcimg, "ShapesPar::build(): srcimg unref" );
+
+
+  set_image_hints( out );
+
+  return out;
+  
+/*  VipsImage* out = PF::OpParBase::build( in, first, imap, omap, level );
 
   int tw = 64, th = 64, nt = out->Xsize*2/tw;
 
@@ -1156,13 +1538,105 @@ VipsImage* PF::ShapesPar::build(std::vector<VipsImage*>& in, int first,
   }
   PF_UNREF( out, "PF::ShapesPar::build(): out unref" );
 
-  return cached;
+  return cached;*/
 }
 
+VipsImage* PF::ShapesAlgoPar::build(std::vector<VipsImage*>& in, int first,
+    VipsImage* imap, VipsImage* omap,
+    unsigned int& level)
+{
+  std::cout<<"PF::ShapesAlgoPar::build()"<<std::endl;
+  
+  VipsImage* out = PF::OpParBase::build(in, first, NULL, NULL, level);
+  
+  std::cout<<"PF::ShapesAlgoPar::build() 2"<<std::endl;
+  
+  return out;
+}
+
+PF::Shape* PF::ShapesAlgoPar::get_shape(int index)
+{
+  int s_type = get_shapes_order().at(index).first;
+  int s_index = get_shapes_order().at(index).second;
+  PF::Shape* shape = NULL;
+  
+    switch(s_type) {
+    case PF::ShapesPar::type_line:
+      shape = &(get_lines()[s_index]);
+      break;
+    case PF::ShapesPar::type_circle:
+      shape = &(get_circles()[s_index]);
+      break;
+    case PF::ShapesPar::type_ellipse:
+      shape = &(get_ellipses()[s_index]);
+      break;
+    case PF::ShapesPar::type_rectangle:
+      shape = &(get_rectangles1()[s_index]);
+      break;
+    }
+    return shape;
+}
+
+int PF::ShapesAlgoPar::add_new_shape(Shape* shape_source)
+{
+//  PF::Shape* p_shape = NULL;
+  int index = -1;
+  
+  switch (shape_source->get_type())
+  {
+  case PF::ShapesPar::type_line:
+  {
+    PF::Line shape;
+    const PF::Line* ss = static_cast<const PF::Line*>(shape_source);
+    shape = *ss;
+    lines.push_back(shape);
+    index = lines.size()-1;
+//    p_shape = &shape;
+  }
+    break;
+  case PF::ShapesPar::type_circle:
+  {
+    PF::Circle1 shape;
+    const PF::Circle1* ss = static_cast<const PF::Circle1*>(shape_source);
+    shape = *ss;
+    circles.push_back(shape);
+    index = circles.size()-1;
+//    p_shape = &shape;
+  }
+    break;
+  case PF::ShapesPar::type_ellipse:
+  {
+    PF::Ellipse shape;
+    const PF::Ellipse* ss = static_cast<const PF::Ellipse*>(shape_source);
+    shape = *ss;
+    ellipses.push_back(shape);
+    index = ellipses.size()-1;
+//    p_shape = &shape;
+  }
+    break;
+  case PF::ShapesPar::type_rectangle:
+  {
+    PF::Rect1 shape;
+    const PF::Rect1* ss = static_cast<const PF::Rect1*>(shape_source);
+    shape = *ss;
+    rectangles1.push_back(shape);
+    index = rectangles1.size()-1;
+//    p_shape = &shape;
+  }
+    break;
+  }
+  
+  if (index >= 0) {
+//    *p_shape = *shape_source;
+    shapes_order.push_back( std::pair<int,int>(shape_source->get_type(),index) );
+  }
+  
+  return index;
+}
 
 PF::ProcessorBase* PF::new_shapes()
 {
-  return( new PF::Processor<PF::ShapesPar,PF::Shapes>() );
+  return( new PF::Processor<PF::ShapesPar,PF::ShapesProc>() );
 }
 
 

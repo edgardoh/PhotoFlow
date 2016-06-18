@@ -320,7 +320,173 @@ void PF::PixelBuffer::draw_circle( int x0, int y0, int radius, PixelBuffer& inbu
   }
 }
 
+void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, float alpha, guint8 r, guint8 g, guint8 b )
+{
+  guint8* px = get_pxbuf()->get_pixels();
+  const int rs = get_pxbuf()->get_rowstride();
+  const int bl = 3;
 
+  int buf_left = get_rect().left;
+  int buf_right = get_rect().left+get_rect().width-1;
+  int buf_top = get_rect().top;
+  int buf_bottom = get_rect().top+get_rect().height-1;
+
+  const float rx2 = radius_x*radius_x;
+  const float ry2 = radius_y*radius_y;
+
+  int D = radius_x;
+  int D2 = radius_x;
+
+  for( int y = 0; y <= radius_y; y++ ) {
+    int row1 = y0 - y;
+    int row2 = y0 + y;
+    
+    const int y2 = y*y;
+    while ( rx2*(ry2-y2) < ry2*D*D && D>0 ) --D;
+    
+    int left = x0 - D;
+    if( left < buf_left )
+      left = buf_left;
+    int right = x0 + D;
+    if( right >= buf_right )
+      right = buf_right;
+    int colspan = (right + 1 - left)*3;
+
+    int left2 = right+1;
+    int right2 = left-1;
+    if( y < radius_y ) {
+      const int y2_1 = (y+1)*(y+1);
+      while ( rx2*(ry2-y2_1) < ry2*D2*D2 && D2>0 ) --D2;
+      
+      left2 = x0 - D2;
+      if( left2 < buf_left )
+        left2 = buf_left;
+      right2 = x0 + D2;
+      if( right2 >= buf_right )
+        right2 = buf_right;
+    }
+
+    if( (row1 >= buf_top) && (row1 <= buf_bottom) ) {
+      guint8* p = px + rs*(row1-buf_top) + (left-buf_left)*bl;
+      if( left2 <= right ) {
+        for( int x = left; x <= left2; x++, p += bl ) {
+          p[0] = r; p[1] = g; p[2] = b;
+        }
+        p = px + rs*(row1-buf_top) + (right2+1-buf_left)*bl;
+        for( int x = right2; x <= right; x++, p += bl ) {
+          p[0] = r; p[1] = g; p[2] = b;
+        }
+      } else {
+        for( int x = left; x <= right; x++, p += bl ) {
+          p[0] = r; p[1] = g; p[2] = b;
+        }
+      }
+    }
+    if( (row2 != row1) && (row2 >= buf_top) && (row2 <= buf_bottom) ) {
+      guint8* p = px + rs*(row2-buf_top) + (left-buf_left)*bl;
+      if( left2 <= right ) {
+        for( int x = left; x <= left2; x++, p += bl ) {
+          p[0] = r; p[1] = g; p[2] = b;
+        }
+        p = px + rs*(row2-buf_top) + (right2+1-buf_left)*bl;
+        for( int x = right2; x <= right; x++, p += bl ) {
+          p[0] = r; p[1] = g; p[2] = b;
+        }
+      } else {
+        for( int x = left; x <= right; x++, p += bl ) {
+          p[0] = r; p[1] = g; p[2] = b;
+        }
+      }
+    }
+  }
+}
+
+
+void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, float alpha, PixelBuffer& inbuf )
+{
+  guint8* inpx = inbuf.get_pxbuf()->get_pixels();
+  guint8* px = get_pxbuf()->get_pixels();
+  const int rs = get_pxbuf()->get_rowstride();
+  const int bl = 3; /*buf->get_byte_length();*/
+
+  int buf_left = get_rect().left;
+  int buf_right = get_rect().left+get_rect().width-1;
+  int buf_top = get_rect().top;
+  int buf_bottom = get_rect().top+get_rect().height-1;
+
+  const float rx2 = radius_x*radius_x;
+  const float ry2 = radius_y*radius_y;
+
+  int D = radius_x;
+  int D2 = radius_x;
+
+  for( int y = 0; y <= radius_y; y++ ) {
+    int row1 = y0 - y;
+    int row2 = y0 + y;
+    
+    const int y2 = y*y;
+    while ( rx2*(ry2-y2) < ry2*D*D && D>0 ) --D;
+    
+    int left = x0 - D;
+    if( left < buf_left )
+      left = buf_left;
+    int right = x0 + D;
+    if( right >= buf_right )
+      right = buf_right;
+    int colspan = (right + 1 - left)*3;
+
+    int left2 = right+1;
+    int right2 = left-1;
+    if( y < radius_y ) {
+      const int y2_1 = (y+1)*(y+1);
+      while ( rx2*(ry2-y2_1) < ry2*D2*D2 && D2>0 ) --D2;
+      
+      left2 = x0 - D2;
+      if( left2 < buf_left )
+        left2 = buf_left;
+      right2 = x0 + D2;
+      if( right2 >= buf_right )
+        right2 = buf_right;
+    }
+
+    if( (row1 >= buf_top) && (row1 <= buf_bottom) ) {
+      guint8* inp = inpx + rs*(row1-buf_top) + (left-buf_left)*bl;
+      guint8* p = px + rs*(row1-buf_top) + (left-buf_left)*bl;
+      if( left2 <= right ) {
+        for( int x = left; x <= left2; x++, inp += bl, p += bl ) {
+          PX_MOD( inp, p );
+        }
+        inp = inpx + rs*(row1-buf_top) + (right2+1-buf_left)*bl;
+        p = px + rs*(row1-buf_top) + (right2+1-buf_left)*bl;
+        for( int x = right2; x <= right; x++, inp += bl, p += bl ) {
+          PX_MOD( inp, p );
+        }
+      } else {
+        for( int x = left; x <= right; x++, inp += bl, p += bl ) {
+          PX_MOD( inp, p );
+        }
+      }
+    }
+    if( (row2 != row1) && (row2 >= buf_top) && (row2 <= buf_bottom) ) {
+      guint8* inp = inpx + rs*(row2-buf_top) + (left-buf_left)*bl;
+      guint8* p = px + rs*(row2-buf_top) + (left-buf_left)*bl;
+      if( left2 <= right ) {
+        for( int x = left; x <= left2; x++, inp += bl, p += bl ) {
+          PX_MOD( inp, p );
+        }
+        inp = inpx + rs*(row2-buf_top) + (right2+1-buf_left)*bl;
+        p = px + rs*(row2-buf_top) + (right2+1-buf_left)*bl;
+        for( int x = right2; x <= right; x++, inp += bl, p += bl ) {
+          PX_MOD( inp, p );
+        }
+      } else {
+        for( int x = left; x <= right; x++, inp += bl, p += bl ) {
+          PX_MOD( inp, p );
+        }
+      }
+    }
+  }
+}
 
 void PF::PixelBuffer::draw_line( int x1, int y1, int x2, int y2, guint8 r, guint8 g, guint8 b )
 {

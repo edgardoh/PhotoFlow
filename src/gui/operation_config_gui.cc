@@ -45,7 +45,7 @@
 #include "../gui/operations/perspective_config.hh"
 #include "../gui/operations/gradient_config.hh"
 #include "../gui/operations/path_mask_config.hh"
-#include "../gui/operations/shapes_config.hh"
+#include "../gui/operations/shapes_mask_config.hh"
 #include "../gui/operations/uniform_config.hh"
 #include "../gui/operations/curves_config.hh"
 #include "../gui/operations/channel_mixer_config.hh"
@@ -1082,9 +1082,9 @@ PF::ProcessorBase* PF::new_operation_with_gui( std::string op_type, PF::Layer* c
 
     dialog = new PF::PathMaskConfigGUI( current_layer );
 
-  } else if( op_type == "shapes" ) {
+  } else if( op_type == "shapes_mask" ) {
 
-    dialog = new PF::ShapesConfigGUI( current_layer );
+    dialog = new PF::ShapesMaskConfigGUI( current_layer );
 
   } else if( op_type == "brightness_contrast" ) {
 

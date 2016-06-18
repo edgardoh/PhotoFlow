@@ -27,17 +27,26 @@
 
  */
 
-#include "../../base/imageprocessor.hh"
-#include "../../operations/retouch.hh"
+#ifndef SHAPES_MASK_CONFIG_DIALOG_HH
+#define SHAPES_MASK_CONFIG_DIALOG_HH
 
-#include "retouch_config.hh"
+#include <gtkmm.h>
 
+//#include "../operation_config_gui.hh"
+//#include "../../operations/shapes_mask.hh"
+#include "shapes_config.hh"
 
-PF::RetouchConfigGUI::RetouchConfigGUI( PF::Layer* layer ):
-ShapesConfigGUI( layer, "Retouch" )
-{
+namespace PF {
+
+  class ShapesMaskConfigGUI: public ShapesConfigGUI
+  {
+  public:
+    ShapesMaskConfigGUI( Layer* l );
+    
+    bool get_has_source() { return false; }
+
+  };
 
 }
 
-
-
+#endif

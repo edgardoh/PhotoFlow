@@ -27,17 +27,13 @@
 
  */
 
-#include "../../base/imageprocessor.hh"
-#include "../../operations/retouch.hh"
-
-#include "retouch_config.hh"
+#include "shapes_mask_config.hh"
 
 
-PF::RetouchConfigGUI::RetouchConfigGUI( PF::Layer* layer ):
-ShapesConfigGUI( layer, "Retouch" )
+PF::ShapesMaskConfigGUI::ShapesMaskConfigGUI( PF::Layer* layer ):
+ShapesConfigGUI( layer, "shapes mask" )
 {
 
 }
-
 
 

@@ -68,11 +68,37 @@ public:
   Point(): x(0), y(0)
   {
   }
-  Point(int x1, int y1)
+  Point(int x1, int y1): x(x1), y(y1)
   {
-    x = x1; y = y1;
+  }
+  Point(const Point& other): x(other.x), y(other.y)
+  {
   }
   virtual ~Point() {}
+  
+/*  friend void swap(Point& first, Point& second) // nothrow
+  {
+      // enable ADL (not necessary in our case, but good practice)
+      using std::swap;
+
+      // by swapping the members of two classes,
+      // the two classes are effectively swapped
+      swap(first.x, second.x);
+      swap(first.y, second.y);
+  }
+  */
+  void swap(Point& first)
+  {
+    std::swap(x, first.x);
+    std::swap(y, first.y);
+  }
+  
+  Point& operator=(Point other)
+  {
+//    swap(*this, other);
+    this->swap(other);
+      return *this;
+  }
   
   int get_x() const { return x; }
   void set_x(int s) { x = s; }
@@ -168,6 +194,11 @@ public:
   Shape(): shape_type(shape), size(0), opacity(1.f), falloff(0), has_source(false), mask(NULL)
   {
   }
+  Shape(const Shape& other):
+    shape_type(shape), size(other.size), opacity(other.opacity), falloff(other.falloff), 
+    points(other.points), falloff_points(other.falloff_points), has_source(other.has_source), source_point(other.source_point), mask(NULL)
+  {
+  }
   Shape(Point& d_init_pos, int d_size, float d_opacity, int d_falloff, bool d_has_source, Point& d_source_point): 
     shape_type(shape), mask(NULL)
   {
@@ -177,14 +208,15 @@ public:
     set_has_source(d_has_source);
     if ( get_has_source() ) set_source_point(d_source_point);
   }
-  virtual ~Shape() { if (mask != NULL) free(mask); }
+  virtual ~Shape() { if (mask != NULL) { free(mask); std::cout<<"PF::Shapes::~Shape() free(mask)"<<std::endl; } }
   
   enum shapeType
   {
     shape = 0,
     line = 1,
     circle = 2,
-    rectangle = 3,
+    ellipse = 3,
+    rectangle = 4,
   };
   
   enum hitTest
@@ -200,6 +232,30 @@ public:
   };
   
   static const int hit_test_delta;
+  
+  friend void swap(Shape& first, Shape& second) // nothrow
+  {
+      // enable ADL (not necessary in our case, but good practice)
+      using std::swap;
+
+      // by swapping the members of two classes,
+      // the two classes are effectively swapped
+//      swap(first.shape_type, second.mSize);
+      swap(first.size, second.size);
+      swap(first.opacity, second.opacity);
+      swap(first.falloff, second.falloff);
+      first.points.swap(second.points);
+      first.falloff_points.swap(second.falloff_points);
+      swap(first.has_source, second.has_source);
+//      first.source_point.swap(second.source_point);
+      first.source_point.swap(second.source_point);
+  }
+  
+  Shape& operator=(Shape other)
+  {
+      swap(*this, other);
+      return *this;
+  }
   
   int get_type() const { return shape_type; }
   void set_type(int s) { shape_type = s; }
@@ -247,7 +303,7 @@ public:
   virtual void offset_falloff_point(int n, Point prev, Point curr);
   virtual void offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source);
 
-  virtual void build_mask(SplineCurve& scurve) { }
+  virtual void build_mask(SplineCurve& scurve) { std::cout<<"PF::Shape::build_mask()"<<std::endl; }
   float *get_mask() { return mask; }
   void free_mask() { if (mask != NULL) free(mask); mask = NULL; }
 
@@ -255,6 +311,19 @@ public:
   virtual bool hit_test_node(Point& pt_test, Point& pt_node);
   virtual int hit_test_node(int n, Point& pt, int& additional);
   
+  bool hit_test_rect(Point& pt, Point& pt1, Point& pt2)
+  {
+    VipsRect rc;
+    get_segment_bounding_rect(pt1, pt2, &rc);
+    return hit_test_rect(pt, &rc);
+  }
+  bool hit_test_rect(Point& pt, VipsRect* rc)
+  {
+    return ( pt.get_x() >= rc->left-PF::Shape::hit_test_delta && pt.get_x() <= rc->left+rc->width+PF::Shape::hit_test_delta && 
+        pt.get_y() >= rc->top-PF::Shape::hit_test_delta && pt.get_y() <= rc->top+rc->height+PF::Shape::hit_test_delta );
+  }
+
+
   void add_point(Point pt);
   void insert_point(Point& pt, int position);
   void remove_point(int n);
@@ -275,6 +344,10 @@ public:
   bool point_in_triangle(Point& pt, Point& a, Point& b, Point& c);
   bool point_in_rectangle(Point& pt, Point& a, Point& b, Point& c, Point& d);
   float point_in_ellipse(int x, int y, int h, int v, float rx2, float ry2);
+
+  static void get_segment_bounding_rect(Point& pt1, Point& pt2, VipsRect* rc);
+  static void get_segment_bounding_rect(Point& pt1, Point& pt2, int expand, VipsRect* rc);
+  static void get_expanded_rec_from_line(Point& pt1, Point& pt2, int amount, Point& a, Point& b, Point& c, Point& d);
 
 };
 
@@ -346,6 +419,10 @@ public:
   {
     set_type(line);
   }
+  Line(const Line& other): Shape(other)
+  {
+    set_type(line);
+  }
   Line(Point& d_init_pos, int d_size, float d_opacity, int d_falloff, bool d_has_source, Point& d_source_point): 
     Shape(d_init_pos, d_size, d_opacity, d_falloff, d_has_source, d_source_point)
   {
@@ -358,9 +435,6 @@ public:
   
   void get_rect(VipsRect* rc);
   void get_falloff_rect(VipsRect* rc);
-  static void get_segment_bounding_rect(Point& pt1, Point& pt2, VipsRect* rc);
-  static void get_segment_bounding_rect(Point& pt1, Point& pt2, int expand, VipsRect* rc);
-  static void get_expanded_rec_from_line(Point& pt1, Point& pt2, int amount, Point& a, Point& b, Point& c, Point& d);
   
   void offset(int x, int y) { PF::Shape::offset(x, y); }
   void offset(Point& pt) { PF::Shape::offset(pt); }
@@ -386,6 +460,10 @@ public:
     set_type(circle);
     PF::Shape::add_point(Point(0, 0));
   }
+  Circle1(const Circle1& other): Shape(other)
+  {
+    set_type(circle);
+  }
   Circle1(Point& d_init_pos, int d_size, float d_opacity, int d_falloff, bool d_has_source, Point& d_source_point): 
     Shape(d_init_pos, d_size, d_opacity, d_falloff, d_has_source, d_source_point)
   {
@@ -396,12 +474,12 @@ public:
   Point& get_point() { return PF::Shape::get_point(0); }
   void set_point(Point& pt) { PF::Shape::set_point(0, pt); }
   
+  void expand(int n) { set_size(get_size()+n); }
   void expand_falloff(int n);
   
   int hit_test(Point& pt, int& additional);
   
   void get_center(Point& pt) { pt = PF::Shape::get_point(0); }
-  void expand(int n) { set_size(get_size()+n); }
   
   void add_point(Point pt) { }
   void insert_point(Point& pt, int position) { }
@@ -414,19 +492,152 @@ public:
 
 
 // -----------------------------------
+// Ellipse
+// -----------------------------------
+class Ellipse: public Shape
+{
+  int radius_y; // y radius, the rx is the size property
+  
+public:
+  Ellipse():
+      Shape()
+  {
+    set_type(ellipse);
+    set_radius_y(0);
+    PF::Shape::add_point(Point(0, 0));
+  }
+  Ellipse(const Ellipse& other): Shape(other), radius_y(other.radius_y)
+  {
+    set_type(ellipse);
+  }
+  Ellipse(Point& d_init_pos, int d_size, float d_opacity, int d_falloff, bool d_has_source, Point& d_source_point): 
+    Shape(d_init_pos, d_size, d_opacity, d_falloff, d_has_source, d_source_point)
+  {
+    set_type(ellipse);
+    set_radius_y(d_size/2);
+    PF::Shape::add_point(d_init_pos);
+  }
+
+  friend void swap(Ellipse& first, Ellipse& second) // nothrow
+  {
+      // enable ADL (not necessary in our case, but good practice)
+      using std::swap;
+
+      // by swapping the members of two classes,
+      // the two classes are effectively swapped
+      const Shape& pf = static_cast<const Shape&>(first);
+      const Shape& ps = static_cast<const Shape&>(second);
+      swap(pf, ps);
+      
+      swap(first.radius_y, second.radius_y);
+  }
+  
+  int get_radius_x() const { return get_size(); }
+  void set_radius_x(int s) { set_size(s); }
+
+  int get_radius_y() const { return radius_y; }
+  void set_radius_y(int s) { radius_y = std::max(0, s); }
+
+  int get_falloff_x() const { return get_falloff(); }
+  void set_falloff_x(int s) { set_falloff(s); }
+
+  int get_falloff_y();
+
+  Point& get_point() { return PF::Shape::get_point(0); }
+  void set_point(Point& pt) { PF::Shape::set_point(0, pt); }
+  
+  void expand(int n);
+  void expand_falloff(int n);
+  
+  int hit_test(Point& pt, int& additional);
+  
+  void offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source);
+  void offset(int x, int y) { PF::Shape::offset(x, y); }
+  void offset(Point& pt) { PF::Shape::offset(pt); }
+
+  void get_center(Point& pt) { pt = PF::Shape::get_point(0); }
+  
+  void add_point(Point pt) { }
+  void insert_point(Point& pt, int position) { }
+
+  void get_rect(VipsRect* rc);
+  void get_falloff_rect(VipsRect* rc);
+  
+  void scale(int scale) { PF::Shape::scale(scale); radius_y /= scale; }
+  
+  void build_mask(SplineCurve& scurve);
+};
+
+inline
+bool operator ==(const Ellipse& l, const Ellipse& r)
+{
+  assert(typeid(l) == typeid(r));
+
+  const Shape& pr = static_cast<const Shape&>(r);
+  const Shape& pl = static_cast<const Shape&>(l);
+    
+  if( pl != pr ) return false;
+  if( l.get_radius_y() != r.get_radius_y() ) return false;
+  return true;      
+}
+
+inline
+bool operator !=(const Ellipse& l, const Ellipse& r)
+{
+  return( !(l==r) );
+}
+
+inline std::istream& operator >>( std::istream& str, Ellipse& shape )
+{
+  assert(typeid(l) == typeid(r));
+
+  Shape& pshape = static_cast<Shape&>(shape);
+  int radius_y;
+  
+  str>>pshape>>radius_y;
+  shape.set_radius_y(radius_y);
+  return str;
+}
+
+inline std::ostream& operator <<( std::ostream& str, const Ellipse& shape )
+{
+  assert(typeid(l) == typeid(r));
+
+  const Shape& pshape = static_cast<const Shape&>(shape);
+    
+  str<<pshape<<shape.get_radius_y()<<" ";
+  return str;
+}
+
+template<> inline
+void set_gobject_property< Ellipse >(gpointer object, const std::string name,
+    const Ellipse& value)
+{
+}
+
+template<> inline
+void set_gobject_property< std::vector<Ellipse> >(gpointer object, const std::string name,
+    const std::vector<Ellipse>& value)
+{
+}
+
+// -----------------------------------
 // Rect1
 // -----------------------------------
 class Rect1: public Shape
 {
 
 public:
-//  Rect1();
   Rect1():
       Shape()
   {
     set_type(rectangle);
     PF::Shape::add_point(Point(0, 0));
     PF::Shape::add_point(Point(1, 1));
+  }
+  Rect1(const Rect1& other): Shape(other)
+  {
+    set_type(rectangle);
   }
   Rect1(Point& d_init_pos, int d_size, float d_opacity, int d_falloff, bool d_has_source, Point& d_source_point): 
     Shape(d_init_pos, d_size, d_opacity, d_falloff, d_has_source, d_source_point)
@@ -447,18 +658,6 @@ public:
   void offset(int x, int y) { PF::Shape::offset(x, y); }
   void offset(Point& pt) { PF::Shape::offset(pt); }
 
-  bool hit_test_rect(Point& pt, Point& pt1, Point& pt2)
-  {
-    VipsRect rc;
-    PF::Line::get_segment_bounding_rect(pt1, pt2, &rc);
-    return hit_test_rect(pt, &rc);
-  }
-  bool hit_test_rect(Point& pt, VipsRect* rc)
-  {
-    return ( pt.get_x() >= rc->left-PF::Shape::hit_test_delta && pt.get_x() <= rc->left+rc->width+PF::Shape::hit_test_delta && 
-        pt.get_y() >= rc->top-PF::Shape::hit_test_delta && pt.get_y() <= rc->top+rc->height+PF::Shape::hit_test_delta );
-  }
-
   int hit_test(Point& pt, int& additional);
   
   void build_mask(SplineCurve& scurve);
@@ -473,10 +672,13 @@ class ShapesPar: public OpParBase
   Property<SplineCurve> falloff_curve;
   Property< std::vector<Line> > lines;
   Property< std::vector<Circle1> > circles;
+  Property< std::vector<Ellipse> > ellipses;
   Property< std::vector<Rect1> > rectangles1;
   Property< std::vector< std::pair<int,int> > > shapes_order; // shape_type - shape_index
 
-//  ProcessorBase* curve;
+  int scale_factor;
+
+  ProcessorBase* shapes_algo;
 
 public:
 
@@ -487,15 +689,21 @@ public:
     type_none = 0,
     type_line = 1,
     type_circle = 2,
-    type_rectangle = 3
+    type_ellipse = 3,
+    type_rectangle = 4,
   };
 
+  ProcessorBase* get_shapes_algo() { return shapes_algo; }
+  
+  int get_scale_factor() { return scale_factor; }
+  void set_scale_factor(int s) { scale_factor = s; }
 
   SplineCurve& get_shapes_falloff_curve() { return falloff_curve.get(); }
 
   void shapes_modified() { shapes_order.modified();  }
   void add_shape(Line& shape);
   void add_shape(Circle1& shape);
+  void add_shape(Ellipse& shape);
   void add_shape(Rect1& shape);
 
   PF::Shape* get_shape(int index);
@@ -504,6 +712,7 @@ public:
   
   std::vector<Line>& get_lines() { return lines.get(); }
   std::vector<Circle1>& get_circles() { return circles.get(); }
+  std::vector<Ellipse>& get_ellipses() { return ellipses.get(); }
   std::vector<Rect1>& get_rectangles1() { return rectangles1.get(); }
   std::vector< std::pair<int,int> >& get_shapes_order() { return shapes_order.get(); }
   
@@ -515,15 +724,190 @@ public:
       unsigned int& level);
 };
 
+template < OP_TEMPLATE_DEF >
+class ShapesProc
+{
+public:
+  void render(VipsRegion** in, int n, int in_first,
+      VipsRegion* imap, VipsRegion* omap,
+      VipsRegion* out, OpParBase* par)
+  {
+    std::cout<<"PF::ShapesProc::render()"<<std::endl;
+  }
+};
 
 
+
+template < OP_TEMPLATE_DEF_TYPE_SPEC >
+class ShapesProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
+{
+public:
+  void render(VipsRegion** ireg, int n, int in_first,
+      VipsRegion* imap, VipsRegion* omap,
+      VipsRegion* oreg, OpParBase* par)
+  {
+    std::cout<<"PF::ShapesProc::render() 2"<<std::endl;
+  }
+  
+};
+
+
+class ShapesAlgoPar: public OpParBase
+{
+  std::vector<Line> lines;
+  std::vector<Circle1> circles;
+  std::vector<Ellipse> ellipses;
+  std::vector<Rect1> rectangles1;
+  std::vector< std::pair<int,int> > shapes_order; // shape_type - shape_index
+
+  int scale_factor;
+
+public:
+
+  ShapesAlgoPar();
+
+  ~ShapesAlgoPar()
+  {
+  }
+
+  int add_new_shape(Shape* shape_source);
+  PF::Shape* get_shape(int index);
+  int get_shapes_count() { return get_shapes_order().size(); }
+
+  std::vector<Line>& get_lines() { return lines; }
+  std::vector<Circle1>& get_circles() { return circles; }
+  std::vector<Ellipse>& get_ellipses() { return ellipses; }
+  std::vector<Rect1>& get_rectangles1() { return rectangles1; }
+  std::vector< std::pair<int,int> >& get_shapes_order() { return shapes_order; }
+
+  void clear_shapes();
+  
+  VipsImage* build(std::vector<VipsImage*>& in, int first,
+      VipsImage* imap, VipsImage* omap,
+      unsigned int& level);
+
+};
+
+template < OP_TEMPLATE_DEF >
+class ShapesAlgoProc
+{
+public:
+  void render(VipsRegion** in, int n, int in_first,
+      VipsRegion* imap, VipsRegion* omap,
+      VipsRegion* out, OpParBase* par)
+  {
+    std::cout<<"PF::ShapesAlgoProc::render()"<<std::endl;
+  }
+};
+
+
+
+template < OP_TEMPLATE_DEF_TYPE_SPEC >
+class ShapesAlgoProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
+{
+public:
+  void render(VipsRegion** ireg, int n, int in_first,
+      VipsRegion* imap, VipsRegion* omap,
+      VipsRegion* oreg, OpParBase* par)
+  {
+//    std::cout<<"PF::ShapesAlgoProc::render() 2"<<std::endl;
+    
+    Rect *r = &oreg->valid;
+    Rect *ir = &ireg[0]->valid;
+    const int ch = oreg->im->Bands;
+    const int bands = oreg->im->Bands;
+    float* pout;
+
+    for( int y = 0; y < r->height; y++ ) {
+      pout = (float*)VIPS_REGION_ADDR( oreg, r->left, r->top+y );
+
+      for( int x = 0; x < r->width; x++, pout += bands ) {
+        for( int b = 0; b < bands; b++ )
+          pout[b] = 1.f;
+      }
+    }
+
+/*    if (par->get_shapes_algo() == NULL) {
+      std::cout<<"PF::ShapesMask::render() (par->get_shapes_algo() == NULL)"<<std::endl;
+      return;
+    }*/
+    ShapesAlgoPar* opar = dynamic_cast<ShapesAlgoPar*>( par );
+    if (opar == NULL) {
+ //     std::cout<<"PF::ShapesAlgoProc::render() (opar == NULL)"<<std::endl;
+      return;
+    }
+    
+    if (opar) {
+      PF::Shape* shape;
+      
+      for (int i = 0; i < opar->get_shapes_count(); i++) {
+//        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i): "<<i<<std::endl;
+        
+        shape = opar->get_shape(i);
+        if (shape == NULL) {
+ //         std::cout<<"PF::ShapesAlgoProc::render() (shape == NULL) "<<std::endl;
+          return;
+        }
+        
+        float *mask = shape->get_mask();
+        if (mask == NULL) {
+ //         std::cout<<"PF::ShapesAlgoProc::render() (mask == NULL) "<<std::endl;
+          return;
+        }
+        
+        VipsRect mask_area, out_area/*, in_area*/;
+        shape->get_mask_rect(&mask_area);
+        vips_rect_intersectrect( r, &mask_area, &out_area );
+//        out_area = *r;
+//        in_area = *ir;
+//        const int offset_left = out_area.left /*+ (in_area.left - in_area_offset.left)*/;
+//        const int offset_top = out_area.top /*+ (in_area.top - in_area_offset.top)*/;
+if (out_area.width > 0 && out_area.height > 0) {
+        std::cout<<"PF::ShapesAlgoProc::render() mask_area.left: "<<mask_area.left<<", mask_area.top: "<<mask_area.top<<std::endl;
+        std::cout<<"PF::ShapesAlgoProc::render() mask_area.width: "<<mask_area.width<<", mask_area.height: "<<mask_area.height<<std::endl;
+        
+        std::cout<<"PF::ShapesAlgoProc::render() r->left: "<<r->left<<", r->top: "<<r->top<<std::endl;
+        std::cout<<"PF::ShapesAlgoProc::render() r->width: "<<r->width<<", r->height: "<<r->height<<std::endl;
+        
+        std::cout<<"PF::ShapesAlgoProc::render() out_area.left: "<<out_area.left<<", out_area.top: "<<out_area.top<<std::endl;
+        std::cout<<"PF::ShapesAlgoProc::render() out_area.width: "<<out_area.width<<", out_area.height: "<<out_area.height<<std::endl;
+}
+        for( int y = 0; y < out_area.height; y++ ) {
+          pout = (float*)VIPS_REGION_ADDR( oreg, out_area.left, out_area.top + y );
+ //         std::cout<<"PF::ShapesAlgoProc::render() 3: y = "<<y<<std::endl;
+//          const int y_mask = offset_top + y;
+          float* pmask = mask + ( y + out_area.top-mask_area.top) * mask_area.width;
+//          std::cout<<"PF::ShapesAlgoProc::render() 3: y*mask_area.width = "<<y*mask_area.width<<std::endl;
+          
+          for( int x = 0; x < out_area.width; x++, pout+=ch ) {
+//            std::cout<<"PF::ShapesAlgoProc::render() 4: x = "<<x<<", y: "<<y<<std::endl;
+//            const int x_mask = offset_left + x;
+            const float f = pmask[x + out_area.left - mask_area.left];
+//            std::cout<<"PF::ShapesAlgoProc::render() 4: i = "<<i<<std::endl;
+            if (f > 0.) {
+              for (int c = 0; c < ch; c++)
+                pout[c] = (1.f - f);
+            }
+          }
+        }
+
+      }
+    }
+  }
+  
+};
+
+
+/*
 template < OP_TEMPLATE_DEF >
 class Shapes: public IntensityProc<T, has_imap>
 {
 public:
   void render(VipsRegion** in, int n, int in_first,
       VipsRegion* imap, VipsRegion* omap,
-      VipsRegion* out, ShapesPar* par);
+      VipsRegion* out, ShapesPar* par)
+  {
+  }
 
 };
 
@@ -533,10 +917,10 @@ void Shapes< OP_TEMPLATE_IMP >::
 render(VipsRegion** ir, int n, int in_first,
     VipsRegion* imap, VipsRegion* omap,
     VipsRegion* oreg, ShapesPar* par)
-    {
-
-    };
-
+{
+  std::cout<<"PF::Shapes::render()"<<std::endl;
+};
+*/
 
   ProcessorBase* new_shapes();
 }
