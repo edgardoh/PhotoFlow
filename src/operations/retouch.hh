@@ -58,8 +58,6 @@ public:
 
 };
 
-
-
 template < OP_TEMPLATE_DEF >
 class RetouchProc
 {

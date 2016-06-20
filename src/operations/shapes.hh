@@ -666,25 +666,147 @@ public:
   
 };
 
+// -----------------------------------
+// ShapesGroup
+// -----------------------------------
+
+class ShapesGroup
+{
+  std::vector<Line> lines;
+  std::vector<Circle1> circles;
+  std::vector<Ellipse> ellipses;
+  std::vector<Rect1> rectangles1;
+  std::vector< std::pair<int,int> > shapes_order; // shape_type - shape_index
+
+
+public:
+  ShapesGroup()
+  {
+  }
+  ShapesGroup(const ShapesGroup& other): lines(other.lines), circles(other.circles), ellipses(other.ellipses), 
+      rectangles1(other.rectangles1), shapes_order(other.shapes_order)
+  {
+  }
+  virtual ~ShapesGroup() { }
+  
+  
+  friend void swap(ShapesGroup& first, ShapesGroup& second) // nothrow
+  {
+      // enable ADL (not necessary in our case, but good practice)
+      using std::swap;
+
+      // by swapping the members of two classes,
+      // the two classes are effectively swapped
+      first.lines.swap(second.lines);
+      first.circles.swap(second.circles);
+      first.ellipses.swap(second.ellipses);
+      first.rectangles1.swap(second.rectangles1);
+      first.shapes_order.swap(second.shapes_order);
+
+  }
+  
+  ShapesGroup& operator=(ShapesGroup other)
+  {
+      swap(*this, other);
+      return *this;
+  }
+  
+  std::vector<Line>& get_lines() { return lines; }
+  const std::vector<Line>& get_lines() const { return lines; }
+
+  std::vector<Circle1>& get_circles() { return circles; }
+  const std::vector<Circle1>& get_circles() const { return circles; }
+
+  std::vector<Ellipse>& get_ellipses() { return ellipses; }
+  const std::vector<Ellipse>& get_ellipses() const { return ellipses; }
+
+  std::vector<Rect1>& get_rectangles() { return rectangles1; }
+  const std::vector<Rect1>& get_rectangles() const { return rectangles1; }
+
+  std::vector< std::pair<int,int> >& get_shapes_order() { return shapes_order; }
+  const std::vector< std::pair<int,int> >& get_shapes_order() const { return shapes_order; }
+
+  int size() { return get_shapes_order().size(); }
+  
+  int get_shape_type(int n) { return get_shapes_order().at(n).first; }
+
+//  PF::Shape& get_shape(int index);
+  PF::Shape* get_shape(int index);
+  
+  int add(Shape* shape_source);
+  
+  void clear();
+  
+  void scale(int sf);
+  void build_mask(SplineCurve& scurve);
+
+};
+
+inline
+bool operator ==(const ShapesGroup& l, const ShapesGroup& r)
+{
+  if( l.get_lines() != r.get_lines() ) return false;
+  if( l.get_circles() != r.get_circles() ) return false;
+  if( l.get_ellipses() != r.get_ellipses() ) return false;
+  if( l.get_rectangles() != r.get_rectangles() ) return false;
+  if( l.get_shapes_order() != r.get_shapes_order() ) return false;
+  return true;
+      }
+
+inline
+bool operator !=(const ShapesGroup& l, const ShapesGroup& r)
+      {
+  return( !(l==r) );
+      }
+
+
+inline std::istream& operator >>( std::istream& str, ShapesGroup& shape )
+{
+  str>>shape.get_lines()>>shape.get_circles()>>shape.get_ellipses()>>shape.get_rectangles()>>shape.get_shapes_order();
+
+  return str;
+}
+
+inline std::ostream& operator <<( std::ostream& str, const ShapesGroup& shape )
+{
+  str<<shape.get_lines()<<shape.get_circles()<<shape.get_ellipses()<<shape.get_rectangles()<<shape.get_shapes_order();
+  return str;
+}
+
+template<> inline
+void set_gobject_property< ShapesGroup >(gpointer object, const std::string name,
+    const ShapesGroup& value)
+{
+}
+
+template<> inline
+void set_gobject_property< std::vector<ShapesGroup> >(gpointer object, const std::string name,
+    const std::vector<ShapesGroup>& value)
+{
+}
+
 
 class ShapesPar: public OpParBase
 {
   Property<SplineCurve> falloff_curve;
-  Property< std::vector<Line> > lines;
+/*  Property< std::vector<Line> > lines;
   Property< std::vector<Circle1> > circles;
   Property< std::vector<Ellipse> > ellipses;
   Property< std::vector<Rect1> > rectangles1;
   Property< std::vector< std::pair<int,int> > > shapes_order; // shape_type - shape_index
-
-  int scale_factor;
-
+*/
+  Property<ShapesGroup> shapes;
+  
   ProcessorBase* shapes_algo;
+
+//  int scale_factor;
+
 
 public:
 
   ShapesPar();
 
-  enum shape_type
+/*  enum shape_type
   {
     type_none = 0,
     type_line = 1,
@@ -692,30 +814,42 @@ public:
     type_ellipse = 3,
     type_rectangle = 4,
   };
-
+*/
+  ShapesGroup& get_ShapesGroup() { return shapes.get(); }
   ProcessorBase* get_shapes_algo() { return shapes_algo; }
   
-  int get_scale_factor() { return scale_factor; }
-  void set_scale_factor(int s) { scale_factor = s; }
+//  int get_scale_factor() { return scale_factor; }
+//  void set_scale_factor(int s) { scale_factor = s; }
 
   SplineCurve& get_shapes_falloff_curve() { return falloff_curve.get(); }
 
-  void shapes_modified() { shapes_order.modified();  }
-  void add_shape(Line& shape);
-  void add_shape(Circle1& shape);
-  void add_shape(Ellipse& shape);
-  void add_shape(Rect1& shape);
-
-  PF::Shape* get_shape(int index);
-  int get_shapes_count() { return get_shapes_order().size(); }
-  int get_shape_type(int n) { return get_shapes_order().at(n).first; }
+  void shapes_modified() { shapes.modified(); }
   
-  std::vector<Line>& get_lines() { return lines.get(); }
+  int add_shape(Shape* shape) { return shapes.get().add(shape); }
+/*  void add_shape(Line& shape) { shapes.get().add(shape); }
+  void add_shape(Circle1& shape) { shapes.get().add(shape); }
+  void add_shape(Ellipse& shape) { shapes.get().add(shape); }
+  void add_shape(Rect1& shape) { shapes.get().add(shape); }
+*/
+//  PF::Shape& get_shape(int index) { return shapes.get().get_shape(index); }
+  PF::Shape* get_shape(int index) 
+  { 
+    PF::Shape* shape = shapes.get().get_shape(index);
+    if (shape == NULL)
+        std::cout<<"PF::ShapesPar::get_shape() (shape == NULL) "<<std::endl;
+    return  shape;
+  }
+  int get_shapes_count() { return shapes.get().size(); }
+//  int get_shape_type(int n) { return get_shapes_order().at(n).first; }
+  
+//  void build_masks(unsigned int level);
+
+/*  std::vector<Line>& get_lines() { return lines.get(); }
   std::vector<Circle1>& get_circles() { return circles.get(); }
   std::vector<Ellipse>& get_ellipses() { return ellipses.get(); }
   std::vector<Rect1>& get_rectangles1() { return rectangles1.get(); }
   std::vector< std::pair<int,int> >& get_shapes_order() { return shapes_order.get(); }
-  
+  */
   bool needs_input() { return false; }
   bool has_intensity() { return false; }
 
@@ -754,13 +888,15 @@ public:
 
 class ShapesAlgoPar: public OpParBase
 {
-  std::vector<Line> lines;
+/*  std::vector<Line> lines;
   std::vector<Circle1> circles;
   std::vector<Ellipse> ellipses;
   std::vector<Rect1> rectangles1;
   std::vector< std::pair<int,int> > shapes_order; // shape_type - shape_index
-
-  int scale_factor;
+*/
+  ShapesGroup shapes;
+  
+//  int scale_factor;
 
 public:
 
@@ -770,17 +906,24 @@ public:
   {
   }
 
-  int add_new_shape(Shape* shape_source);
-  PF::Shape* get_shape(int index);
-  int get_shapes_count() { return get_shapes_order().size(); }
+//  void clear_shapes() { shapes.clear(); }
+//  void set_shapes(ShapesGroup& sg) { shapes = sg; }
+//  void scale_shapes(int sf) { shapes.scale(sf); }
+//  void build_mask_shapes(SplineCurve& scurve) { shapes.build_mask(scurve); }
+  
+  void build_masks(ShapesGroup& sg, SplineCurve& scurve, unsigned int level);
 
-  std::vector<Line>& get_lines() { return lines; }
+//  int add_new_shape(Shape* shape_source);
+  PF::Shape* get_shape(int index) { return shapes.get_shape(index); }
+  int get_shapes_count() { return shapes.size(); }
+
+/*  std::vector<Line>& get_lines() { return lines; }
   std::vector<Circle1>& get_circles() { return circles; }
   std::vector<Ellipse>& get_ellipses() { return ellipses; }
   std::vector<Rect1>& get_rectangles1() { return rectangles1; }
   std::vector< std::pair<int,int> >& get_shapes_order() { return shapes_order; }
-
-  void clear_shapes();
+*/
+  
   
   VipsImage* build(std::vector<VipsImage*>& in, int first,
       VipsImage* imap, VipsImage* omap,
@@ -810,7 +953,7 @@ public:
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* oreg, OpParBase* par)
   {
-//    std::cout<<"PF::ShapesAlgoProc::render() 2"<<std::endl;
+    std::cout<<"PF::ShapesAlgoProc::render() 2"<<std::endl;
     
     Rect *r = &oreg->valid;
     Rect *ir = &ireg[0]->valid;
@@ -833,31 +976,38 @@ public:
     }*/
     ShapesAlgoPar* opar = dynamic_cast<ShapesAlgoPar*>( par );
     if (opar == NULL) {
- //     std::cout<<"PF::ShapesAlgoProc::render() (opar == NULL)"<<std::endl;
+      std::cout<<"PF::ShapesAlgoProc::render() (opar == NULL)"<<std::endl;
       return;
     }
     
-    if (opar) {
-      PF::Shape* shape;
+//    if (opar) {
+//      PF::Shape* shape;
       
       for (int i = 0; i < opar->get_shapes_count(); i++) {
-//        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i): "<<i<<std::endl;
+        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i): "<<i<<std::endl;
         
-        shape = opar->get_shape(i);
+        PF::Shape* shape = opar->get_shape(i);
         if (shape == NULL) {
- //         std::cout<<"PF::ShapesAlgoProc::render() (shape == NULL) "<<std::endl;
+          std::cout<<"PF::ShapesAlgoProc::render() (shape == NULL) "<<std::endl;
           return;
         }
+        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i):2 "<<i<<std::endl;
         
         float *mask = shape->get_mask();
+        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i):21 "<<i<<std::endl;
         if (mask == NULL) {
- //         std::cout<<"PF::ShapesAlgoProc::render() (mask == NULL) "<<std::endl;
+          std::cout<<"PF::ShapesAlgoProc::render() (mask == NULL) "<<std::endl;
           return;
         }
+        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i):3 "<<i<<std::endl;
         
         VipsRect mask_area, out_area/*, in_area*/;
         shape->get_mask_rect(&mask_area);
+        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i):4 "<<i<<std::endl;
+
         vips_rect_intersectrect( r, &mask_area, &out_area );
+        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i):5 "<<i<<std::endl;
+
 //        out_area = *r;
 //        in_area = *ir;
 //        const int offset_left = out_area.left /*+ (in_area.left - in_area_offset.left)*/;
@@ -892,7 +1042,7 @@ if (out_area.width > 0 && out_area.height > 0) {
         }
 
       }
-    }
+//    }
   }
   
 };

@@ -1333,6 +1333,182 @@ void PF::Rect1::build_mask(SplineCurve& scurve)
 
 }
 
+// -----------------------------------
+// ShapesGroup
+// -----------------------------------
+
+PF::Shape* PF::ShapesGroup::get_shape(int index)
+{
+  std::cout<<"PF::ShapesGroup::get_shape()"<<std::endl;
+  PF::Shape* shape = NULL;
+  
+  int s_type = get_shapes_order().at(index).first;
+  std::cout<<"PF::ShapesGroup::get_shape() 1"<<std::endl;
+  int s_index = get_shapes_order().at(index).second;
+  std::cout<<"PF::ShapesGroup::get_shape() s_index: "<<s_index<<std::endl;
+  
+  if ( s_type == PF::Shape::line )
+    shape = &(get_lines().data()[s_index]);
+//  std::cout<<"PF::ShapesGroup::get_shape() get_circles().size(): "<<get_circles().size()<<std::endl;
+
+  else if ( s_type == PF::Shape::circle ) {
+    Circle1& sh = get_circles()[s_index];
+    shape = dynamic_cast<Circle1*>(&sh);
+//    shape = &(get_circles().data()[s_index]);
+    std::cout<<"PF::ShapesGroup::get_shape() get_circles()[s_index].get_point().get_x(): "<<get_circles()[s_index].get_point().get_x()<<std::endl;
+  }
+  else if ( s_type == PF::Shape::ellipse )
+    shape = &(get_ellipses().data()[s_index]);
+//  std::cout<<"PF::ShapesGroup::get_shape() 5"<<std::endl;
+
+  else if ( s_type == PF::Shape::rectangle )
+    shape = &(get_rectangles().data()[s_index]);
+  else
+  std::cout<<"PF::ShapesGroup::get_shape(): invalid shape index: "<<index<<std::endl;
+  
+  if (shape == NULL)
+    std::cout<<"PF::ShapesGroup::get_shape() (shape == NULL) "<<std::endl;
+
+  return shape;
+}
+/*
+PF::Shape& PF::ShapesGroup::get_shape(int index)
+{
+  std::cout<<"PF::ShapesGroup::get_shape()"<<std::endl;
+  
+  int s_type = get_shapes_order().at(index).first;
+  std::cout<<"PF::ShapesGroup::get_shape() 1"<<std::endl;
+  int s_index = get_shapes_order().at(index).second;
+  std::cout<<"PF::ShapesGroup::get_shape() s_index: "<<s_index<<std::endl;
+  
+  if ( s_type == PF::Shape::line )
+    return get_lines()[s_index];
+  std::cout<<"PF::ShapesGroup::get_shape() get_circles().size(): "<<get_circles().size()<<std::endl;
+
+  if ( s_type == PF::Shape::circle )
+    return get_circles()[s_index];
+  std::cout<<"PF::ShapesGroup::get_shape() 4"<<std::endl;
+
+  if ( s_type == PF::Shape::ellipse )
+    return get_ellipses()[s_index];
+  std::cout<<"PF::ShapesGroup::get_shape() 5"<<std::endl;
+
+  if ( s_type == PF::Shape::rectangle )
+    return get_rectangles()[s_index];
+
+  std::cout<<"PF::ShapesGroup::get_shape(): invalid shape index: "<<index<<std::endl;
+  
+  return get_lines()[0];
+}
+*/
+int PF::ShapesGroup::add(Shape* shape_source)
+{
+//  PF::Shape* p_shape = NULL;
+  int index = -1;
+  
+  switch (shape_source->get_type())
+  {
+  case PF::Shape::line:
+  {
+    PF::Line shape;
+    const PF::Line* ss = static_cast<const PF::Line*>(shape_source);
+    shape = *ss;
+    lines.push_back(shape);
+    index = lines.size()-1;
+//    p_shape = &shape;
+  }
+    break;
+  case PF::Shape::circle:
+  {
+    PF::Circle1 shape;
+    const PF::Circle1* ss = static_cast<const PF::Circle1*>(shape_source);
+    shape = *ss;
+    circles.push_back(shape);
+    index = circles.size()-1;
+//    p_shape = &shape;
+  }
+    break;
+  case PF::Shape::ellipse:
+  {
+    PF::Ellipse shape;
+    const PF::Ellipse* ss = static_cast<const PF::Ellipse*>(shape_source);
+    shape = *ss;
+    ellipses.push_back(shape);
+    index = ellipses.size()-1;
+//    p_shape = &shape;
+  }
+    break;
+  case PF::Shape::rectangle:
+  {
+    PF::Rect1 shape;
+    const PF::Rect1* ss = static_cast<const PF::Rect1*>(shape_source);
+    shape = *ss;
+    rectangles1.push_back(shape);
+    index = rectangles1.size()-1;
+//    p_shape = &shape;
+  }
+    break;
+  default:
+    std::cout<<"PF::ShapesAlgoPar::add_new_shape(): invalid shape type: "<<shape_source->get_type()<<std::endl;
+    break;
+  }
+  
+  if (index >= 0) {
+//    *p_shape = *shape_source;
+    shapes_order.push_back( std::pair<int,int>(shape_source->get_type(),index) );
+    index = shapes_order.size()-1;
+    std::cout<<"PF::ShapesAlgoPar::add_new_shape(): added shape at: index: "<<index<<std::endl;
+  }
+  else {
+    std::cout<<"PF::ShapesAlgoPar::add_new_shape(): error adding shape: index: "<<index<<std::endl;
+  }
+  
+  return index;
+}
+
+void PF::ShapesGroup::clear()
+{
+  lines.clear();
+  circles.clear();
+  ellipses.clear();
+  rectangles1.clear();
+  shapes_order.clear();
+
+}
+
+void PF::ShapesGroup::scale(int sf)
+{
+  for (int i = 0; i < lines.size(); i++) {
+    lines[i].scale(sf);
+  }
+  for (int i = 0; i < circles.size(); i++) {
+    circles[i].scale(sf);
+  }
+  for (int i = 0; i < ellipses.size(); i++) {
+    ellipses[i].scale(sf);
+  }
+  for (int i = 0; i < rectangles1.size(); i++) {
+    rectangles1[i].scale(sf);
+  }
+}
+
+void PF::ShapesGroup::build_mask(SplineCurve& scurve)
+{
+  for (int i = 0; i < lines.size(); i++) {
+    lines[i].build_mask(scurve);
+  }
+  for (int i = 0; i < circles.size(); i++) {
+    circles[i].build_mask(scurve);
+  }
+  for (int i = 0; i < ellipses.size(); i++) {
+    ellipses[i].build_mask(scurve);
+  }
+  for (int i = 0; i < rectangles1.size(); i++) {
+    rectangles1[i].build_mask(scurve);
+  }
+}
+
+/*
 PF::Shape* PF::ShapesPar::get_shape(int index)
 {
   int s_type = get_shapes_order().at(index).first;
@@ -1379,39 +1555,49 @@ void PF::ShapesPar::add_shape(Rect1& shape)
   rectangles1.get().push_back(shape);
   shapes_order.get().push_back( std::pair<int,int>(type_rectangle, rectangles1.get().size()-1) );
 }
-
+*/
 
 PF::ShapesPar::ShapesPar():
                 OpParBase(),
                 falloff_curve( "falloff_curve", this ), 
-                lines("lines", this),
+                shapes("shapes_grp", this)
+/*                lines("lines", this),
                 circles("circles", this),
                 ellipses("ellipses", this),
                 rectangles1("rectangles1", this),
-                shapes_order("shapes_order", this)
+                shapes_order("shapes_order", this)*/
 {
   shapes_algo = new PF::Processor<PF::ShapesAlgoPar,PF::ShapesAlgoProc>();
   
   set_type( "shapes" );
   set_default_name( _("shapes") );
 }
-
+/*
+void PF::ShapesPar::build_masks(unsigned int level) 
+{ 
+  if (get_shapes_algo() == NULL) {
+    std::cout<<"PF::ShapesPar::build() (shapes_algo == NULL)"<<std::endl;
+    return NULL;
+  }
+  if (get_shapes_algo()->get_par() == NULL) {
+    std::cout<<"PF::ShapesPar::build() (shapes_algo->get_par() == NULL)"<<std::endl;
+    return NULL;
+  }
+  ShapesAlgoPar* shapes_algo_par = dynamic_cast<ShapesAlgoPar*>( get_shapes_algo()->get_par() );
+  if (shapes_algo_par == NULL) {
+    std::cout<<"PF::ShapesPar::build() (shapes_algo_par == NULL)"<<std::endl;
+    return NULL;
+  }
+  
+  shapes_algo_par->build_masks(shapes.get(), falloff_curve.get(), level); 
+}
+*/
 PF::ShapesAlgoPar::ShapesAlgoPar():
                 OpParBase()
 {
   
   set_type( "shapes_algo" );
   set_default_name( _("shapes_algo") );
-}
-
-void PF::ShapesAlgoPar::clear_shapes()
-{
-  lines.clear();
-  circles.clear();
-  ellipses.clear();
-  rectangles1.clear();
-  shapes_order.clear();
-
 }
 
 VipsImage* PF::ShapesPar::build(std::vector<VipsImage*>& in, int first,
@@ -1427,11 +1613,13 @@ VipsImage* PF::ShapesPar::build(std::vector<VipsImage*>& in, int first,
 
   std::vector<VipsImage*> in2;
 
-  scale_factor = 1;
+/*  scale_factor = 1;
   for(unsigned int l = 0; l < level; l++ ) {
     scale_factor *= 2;
   }
-
+*/
+//  build_masks(level);
+  
   if (shapes_algo == NULL) {
     std::cout<<"PF::ShapesPar::build() (shapes_algo == NULL)"<<std::endl;
     return NULL;
@@ -1446,16 +1634,25 @@ VipsImage* PF::ShapesPar::build(std::vector<VipsImage*>& in, int first,
     return NULL;
   }
 
+  shapes_algo_par->build_masks(get_ShapesGroup(), get_shapes_falloff_curve(), level); 
 //  Shape* shape = NULL;
 //  Shape* shape_new = NULL;
+/*  std::cout<<"PF::ShapesPar::build() shapes.get().size(): "<<shapes.get().size()<<std::endl;
   shapes_algo_par->clear_shapes();
-  
+  shapes_algo_par->set_shapes(shapes.get());
+  std::cout<<"PF::ShapesPar::build() shapes.get().size(): "<<shapes.get().size()<<std::endl;
+  std::cout<<"PF::ShapesPar::build() shapes_algo_par->get_shapes_count(): "<<shapes_algo_par->get_shapes_count()<<std::endl;
+  shapes_algo_par->scale_shapes(scale_factor);
+  shapes_algo_par->build_mask_shapes(get_shapes_falloff_curve());
+*/
+#if 0
   for( unsigned int shape_index = 0; shape_index < get_shapes_order().size(); shape_index++) {
     int shape_type = get_shapes_order()[shape_index].first;
 //    int shape_index = get_shapes_order()[shape_index].second;
 //    shape = get_shape(shape_index);
 //    *shape_new = *shape;
-    int shape_new_index = shapes_algo_par->add_new_shape(get_shape(shape_index));
+//    int shape_new_index = shapes_algo_par->add_new_shape(get_shape(shape_index));
+    int shape_new_index = shapes_algo_par->add_shape(get_shape(shape_index));
     std::cout<<"PF::ShapesPar::build() shape_new_index: "<<shape_new_index<<std::endl;
     Shape* shape_new = shapes_algo_par->get_shape(shape_new_index);
 //    shape = get_shape(shape_index);
@@ -1510,7 +1707,8 @@ VipsImage* PF::ShapesPar::build(std::vector<VipsImage*>& in, int first,
       std::cout<<"PF::ShapesPar::build() (get_shape(shape_index)->get_mask() != NULL)"<<std::endl;
 
   }
-
+#endif
+  
   shapes_algo_par->set_image_hints( srcimg );
   shapes_algo_par->set_format( get_format() );
   in2.clear();
@@ -1541,6 +1739,26 @@ VipsImage* PF::ShapesPar::build(std::vector<VipsImage*>& in, int first,
   return cached;*/
 }
 
+void PF::ShapesAlgoPar::build_masks(ShapesGroup& sg, SplineCurve& scurve, unsigned int level)
+{
+  int scale_factor = 1;
+  for(unsigned int l = 0; l < level; l++ ) {
+    scale_factor *= 2;
+  }
+//  std::cout<<"PF::ShapesPar::build() shapes.get().size(): "<<get_ShapesGroup().size()<<std::endl;
+//  clear_shapes();
+  shapes.clear();
+//  set_shapes(get_ShapesGroup());
+  shapes = sg;
+//  std::cout<<"PF::ShapesPar::build() shapes.get().size(): "<<get_ShapesGroup().size()<<std::endl;
+//  std::cout<<"PF::ShapesPar::build() shapes_algo_par->get_shapes_count(): "<<shapes_algo_par->get_shapes_count()<<std::endl;
+//  scale_shapes(get_scale_factor());
+  shapes.scale(scale_factor);
+//  build_mask_shapes(get_shapes_falloff_curve());
+  shapes.build_mask(scurve);
+
+}
+
 VipsImage* PF::ShapesAlgoPar::build(std::vector<VipsImage*>& in, int first,
     VipsImage* imap, VipsImage* omap,
     unsigned int& level)
@@ -1553,7 +1771,7 @@ VipsImage* PF::ShapesAlgoPar::build(std::vector<VipsImage*>& in, int first,
   
   return out;
 }
-
+/*
 PF::Shape* PF::ShapesAlgoPar::get_shape(int index)
 {
   int s_type = get_shapes_order().at(index).first;
@@ -1624,16 +1842,20 @@ int PF::ShapesAlgoPar::add_new_shape(Shape* shape_source)
 //    p_shape = &shape;
   }
     break;
+  default:
+    std::cout<<"PF::ShapesAlgoPar::add_new_shape(): invalid shape type: "<<shape_source->get_type()<<std::endl;
+    break;
   }
   
   if (index >= 0) {
 //    *p_shape = *shape_source;
     shapes_order.push_back( std::pair<int,int>(shape_source->get_type(),index) );
+    index = shapes_order.size()-1;
   }
   
   return index;
 }
-
+*/
 PF::ProcessorBase* PF::new_shapes()
 {
   return( new PF::Processor<PF::ShapesPar,PF::ShapesProc>() );

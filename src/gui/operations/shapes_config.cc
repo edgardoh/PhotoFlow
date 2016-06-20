@@ -55,17 +55,20 @@ void PF::ShapesConfigGUI::draw_shape(Shape* shape, PF::PixelBuffer& buf_in, PF::
     Line* line = dynamic_cast<Line*>(shape);
     draw_line(line, buf_in, buf_out, hit_t, hit_additional);
   }
-  if (shape->get_type() == PF::Shape::circle) {
+  else if (shape->get_type() == PF::Shape::circle) {
     Circle1* circle = dynamic_cast<Circle1*>(shape);
     draw_circle(circle, buf_in, buf_out, hit_t, hit_additional);
   }
-  if (shape->get_type() == PF::Shape::ellipse) {
+  else if (shape->get_type() == PF::Shape::ellipse) {
     Ellipse* ellipse = dynamic_cast<Ellipse*>(shape);
     draw_ellipse(ellipse, buf_in, buf_out, hit_t, hit_additional);
   }
-  if (shape->get_type() == PF::Shape::rectangle) {
+  else if (shape->get_type() == PF::Shape::rectangle) {
     Rect1* rect = dynamic_cast<Rect1*>(shape);
     draw_rectangle(rect, buf_in, buf_out, hit_t, hit_additional);
+  }
+  else {
+    std::cout<<"PF::ShapesConfigGUI::draw_shape(): invalid shape type: "<<shape->get_type()<<std::endl;
   }
 }
 
@@ -487,7 +490,7 @@ PF::ShapesConfigGUI::ShapesConfigGUI( Layer* layer, const Glib::ustring& title, 
   curvesBox.pack_start( falloffCurveEditor, Gtk::PACK_SHRINK );
   falloffCurveEditor.show();
 
-  shape_type_selected = PF::ShapesPar::type_none;
+  shape_type_selected = PF::Shape::shape;
   
   mo_hit_test = PF::Shape::hit_none;
   mo_shape_index = -1;
@@ -542,7 +545,7 @@ void PF::ShapesConfigGUI::add_new_shape(PF::ShapesPar* par, int shape_type, Poin
 {
   switch (shape_type)
   {
-  case PF::ShapesPar::type_line:
+  case PF::Shape::line:
   {
     Line shape( initial_pos, get_size(get_shape_type()), get_opacity(), get_falloff(), get_has_source(), source_pos );
     
@@ -550,32 +553,41 @@ void PF::ShapesConfigGUI::add_new_shape(PF::ShapesPar* par, int shape_type, Poin
     adding = PF::Shape::line; // we are adding a new shape
   }
    break;
-  case PF::ShapesPar::type_circle:
+  case PF::Shape::circle:
     {
       Circle1 shape( initial_pos, get_size(get_shape_type()), get_opacity(), get_falloff(), get_has_source(), source_pos );
       
-      par->add_shape(shape);
+      mo_shape_index = par->add_shape(&shape);
+      
+      mo_hit_test = PF::Shape::hit_shape;
+//      mo_shape_index = par->get_shapes_order().size()-1;
     }
     break;
-  case PF::ShapesPar::type_ellipse:
+  case PF::Shape::ellipse:
     {
       Ellipse shape( initial_pos, get_size(get_shape_type()), get_opacity(), get_falloff(), get_has_source(), source_pos );
       
-      par->add_shape(shape);
+      mo_shape_index = par->add_shape(&shape);
+      
+      mo_hit_test = PF::Shape::hit_shape;
+//      mo_shape_index = par->get_shapes_order().size()-1;
     }
     break;
-  case PF::ShapesPar::type_rectangle:
+  case PF::Shape::rectangle:
   {
     Rect1 shape( initial_pos, get_size(get_shape_type()), get_opacity(), get_falloff(), get_has_source(), source_pos );
     
-    par->add_shape(shape);
+    mo_shape_index = par->add_shape(&shape);
     
     mo_hit_test = PF::Shape::hit_node;
-    mo_shape_index = par->get_shapes_order().size()-1;
+//    mo_shape_index = par->get_shapes_order().size()-1;
     mo_shape_additional = 2;
     dragging = true;
   }
    break;
+  default:
+    std::cout<<"PF::ShapesConfigGUI::add_new_shape(): invalid shape type: "<<shape_type<<std::endl;
+    break;
   }
 }
 
@@ -597,7 +609,7 @@ bool PF::ShapesConfigGUI::pointer_press_event( int button, double sx, double sy,
       std::cout<<"ShapesConfigGUI::pointer_press_event(): adding line commit"<<std::endl;
       if (line_add.get_points().size() > 2) {
         line_add.remove_point(line_add.get_points().size()-1);
-        par->add_shape(line_add);
+        par->add_shape(&line_add);
       }
       break;
     }
@@ -649,29 +661,34 @@ bool PF::ShapesConfigGUI::pointer_press_event( int button, double sx, double sy,
     std::cout<<"ShapesConfigGUI::pointer_press_event():  add a node to an existing shape"<<std::endl;
     set_editting(true);
     
-    Shape* shape = NULL;
+    if (mo_shape_index >= 0 && mo_shape_additional >= 0) {
+      Shape* shape = par->get_shape(mo_shape_index);
     
-    switch (par->get_shape_type(mo_shape_index))
+/*    switch (shape.get_type())
     {
-    case PF::ShapesPar::type_line:
+    case PF::Shape::line:
       shape = par->get_shape(mo_shape_index);
       break;
     }
-    
-    if (shape != NULL && mo_shape_additional >= 0) {
-      Point pt(sx, sy);
-      pt_screen2image( pt );
+*/    
+      if (shape->get_type() == PF::Shape::line ) {
+        Point pt(sx, sy);
+        pt_screen2image( pt );
+        
+        std::cout<<"ShapesConfigGUI::pointer_press_event(): add a node to a line: mo_shape_additional: "<<mo_shape_additional<<std::endl;
+        
+        shape->insert_point(pt, mo_shape_additional+1);
+        mo_hit_test = PF::Shape::hit_node;
+        mo_shape_additional++;
+      }
       
-      std::cout<<"ShapesConfigGUI::pointer_press_event(): add a node to a line: mo_shape_additional: "<<mo_shape_additional<<std::endl;
-      
-      shape->insert_point(pt, mo_shape_additional+1);
-      mo_hit_test = PF::Shape::hit_node;
-      mo_shape_additional++;
+      par->shapes_modified();
+      image->update();
+    }
+    else {
+      std::cout<<"ShapesConfigGUI::pointer_press_event(): add a node to an existing shape: invalid shape index: "<<mo_shape_index<<", "<<mo_shape_additional<<std::endl;
     }
     
-    par->shapes_modified();
-    image->update();
-
     set_editting(false);
     
     return true;
@@ -683,10 +700,10 @@ bool PF::ShapesConfigGUI::pointer_press_event( int button, double sx, double sy,
 
     switch (get_shape_type())
     {
-    case PF::ShapesPar::type_line:
-    case PF::ShapesPar::type_circle:
-    case PF::ShapesPar::type_ellipse:
-    case PF::ShapesPar::type_rectangle:
+    case PF::Shape::line:
+    case PF::Shape::circle:
+    case PF::Shape::ellipse:
+    case PF::Shape::rectangle:
       {
         Point pt(sx, sy);
         pt_screen2image( pt );
@@ -695,6 +712,12 @@ bool PF::ShapesConfigGUI::pointer_press_event( int button, double sx, double sy,
         pt_screen2image( pts );
         
         add_new_shape(par, get_shape_type(), pt, pts);
+        std::cout<<"PF::ShapesConfigGUI::pointer_press_event() par->get_shapes_count(): "<<par->get_shapes_count()<<std::endl;
+
+        ShapesGroup grp = par->get_ShapesGroup();
+        std::cout<<"PF::ShapesConfigGUI::pointer_press_event() grp.size(): "<<grp.size()<<std::endl;
+        std::cout<<"PF::ShapesConfigGUI::pointer_press_event() grp.get_circles().size(): "<<grp.get_circles().size()<<std::endl;
+        
         
         pt_current.set(sx, sy); // save the current mouse position
         
@@ -708,7 +731,7 @@ bool PF::ShapesConfigGUI::pointer_press_event( int button, double sx, double sy,
     break;
     }
 
-  if (false && get_shape_type() == PF::ShapesPar::type_rectangle) {
+  if (false && get_shape_type() == PF::Shape::rectangle) {
     std::cout<<"ShapesConfigGUI::pointer_press_event(): adding rectangle"<<std::endl;
     set_editting(true);
     
@@ -748,10 +771,10 @@ bool PF::ShapesConfigGUI::pointer_press_event( int button, double sx, double sy,
     
     Rect1 shape( pt, get_size(get_shape_type()), get_opacity(), get_falloff(), get_has_source(), pts );
     
-    par->add_shape(shape);
+    mo_shape_index = par->add_shape(&shape);
     
     mo_hit_test = PF::Shape::hit_node;
-    mo_shape_index = par->get_shapes_order().size()-1;
+//    mo_shape_index = par->get_shapes_order().size()-1;
     mo_shape_additional = 2;
     dragging = true;
 
@@ -833,8 +856,8 @@ bool PF::ShapesConfigGUI::pointer_motion_event( int button, double sx, double sy
     set_editting(true);
     
     // get the active shape
-    Shape *shape = par->get_shape(mo_shape_index);
-    if (shape != NULL) {
+    Shape* shape = par->get_shape(mo_shape_index);
+//    if (shape != NULL) {
       Point prev_pt(pt_current);
       Point curr_pt(sx, sy);
       pt_screen2image(prev_pt);
@@ -846,11 +869,11 @@ bool PF::ShapesConfigGUI::pointer_motion_event( int button, double sx, double sy
   
       par->shapes_modified();
       image->update();
-    }
+/*    }
     else {
       std::cout<<"ShapesConfigGUI::pointer_motion_event() shape == NULL"<<std::endl;
     }
-    
+    */
     set_editting(false);
     
     return true;
@@ -865,14 +888,14 @@ bool PF::ShapesConfigGUI::pointer_motion_event( int button, double sx, double sy
   set_editting(true);
   
   mo_hit_test = PF::Shape::hit_none;
-  Shape *shape = NULL;
+//  Shape *shape = NULL;
   Point hit_pt;
   int index;
       
   for (index = par->get_shapes_count()-1; index >= 0 && mo_hit_test == PF::Shape::hit_none; index--) {
-    shape = par->get_shape(index);
-    if (shape == NULL)
-      std::cout<<"ShapesConfigGUI::pointer_motion_event() shape == NULL"<<std::endl;
+    Shape* shape = par->get_shape(index);
+//    if (shape == NULL)
+//      std::cout<<"ShapesConfigGUI::pointer_motion_event() shape == NULL"<<std::endl;
 
     hit_pt = pt_current;
     pt_screen2image(hit_pt);
@@ -905,14 +928,15 @@ bool PF::ShapesConfigGUI::pointer_scroll_event( int direction, int mod_key )
   // expand shapes
   if (mo_hit_test != PF::Shape::hit_none) {
     Shape* shape = par->get_shape(mo_shape_index);
-    if (shape != NULL) {
+//    if (shape != NULL) {
       std::cout<<"ShapesConfigGUI::pointer_scroll_event() expand shapes"<<std::endl;
       set_editting(true);
       
       if (mod_key == PF::MOD_KEY_NONE) {
         std::cout<<"ShapesConfigGUI::pointer_scroll_event() expand"<<std::endl;
         shape->expand((direction==PF::DIRECTION_KEY_UP)?10:-10);
-        set_size(par->get_shape_type(mo_shape_index), shape->get_size());
+//        set_size(par->get_shape_type(mo_shape_index), shape->get_size());
+        set_size(shape->get_type(), shape->get_size());
       }
       if (mod_key == PF::MOD_KEY_SHIFT) {
         std::cout<<"ShapesConfigGUI::pointer_scroll_event() expand falloff"<<std::endl;
@@ -931,10 +955,10 @@ bool PF::ShapesConfigGUI::pointer_scroll_event( int direction, int mod_key )
       set_editting(false);
       
       return true;
-    }
+/*    }
     else {
       std::cout<<"ShapesConfigGUI::pointer_scroll_event() shape == NULL"<<std::endl;
-    }
+    }*/
   }
   
   return false;

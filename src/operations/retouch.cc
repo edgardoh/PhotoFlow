@@ -51,11 +51,11 @@ PF::RetouchPar::~RetouchPar()
 VipsImage* PF::RetouchPar::build(std::vector<VipsImage*>& in, int first, 
 				VipsImage* imap, VipsImage* omap, unsigned int& level)
 {
-  set_scale_factor(1);
+/*  set_scale_factor(1);
   for(unsigned int l = 0; l < level; l++ ) {
     set_scale_factor( get_scale_factor() * 2 );
   }
-
+*/
   if( (in.size() < 1) || (in[0] == NULL) )
     return NULL;
 
@@ -64,8 +64,8 @@ VipsImage* PF::RetouchPar::build(std::vector<VipsImage*>& in, int first,
 
   Shape* shape = NULL;
   
-  for( unsigned int i = 0; i < get_shapes_order().size(); i++) {
-    int shape_type = get_shapes_order()[i].first;
+  for( unsigned int i = 0; i < get_shapes_count(); i++) {
+/*    int shape_type = get_shapes_order()[i].first;
     int shape_index = get_shapes_order()[i].second;
     
     switch (shape_type)
@@ -104,7 +104,7 @@ VipsImage* PF::RetouchPar::build(std::vector<VipsImage*>& in, int first,
     
     shape->scale(get_scale_factor());
     shape->build_mask(get_shapes_falloff_curve());
-          
+*/          
     VipsImage* tempimg = outnew;
     if( vips_retouch( tempimg, &outnew, get_processor(), /*shape_type,*/ /*shape_index*/shape, NULL ) )
       return NULL;
