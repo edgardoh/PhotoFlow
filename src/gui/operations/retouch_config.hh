@@ -32,20 +32,21 @@
 
 #include <gtkmm.h>
 
-#include "shapes_config.hh"
+#include "shapes_op_config.hh"
 
 
 namespace PF {
 
   class RetouchConfigGUI: public ShapesConfigGUI
 {
+    virtual bool get_has_source() { return true; }
+
 public:
   RetouchConfigGUI( Layer* l );
-
-  bool get_has_source() { return true; }
 
 };
 
 }
 
 #endif
+

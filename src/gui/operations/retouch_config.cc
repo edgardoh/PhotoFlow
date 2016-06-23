@@ -39,5 +39,3 @@ ShapesConfigGUI( layer, "Retouch" )
 
 }
 
-
-

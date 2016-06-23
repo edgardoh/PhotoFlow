@@ -30,14 +30,8 @@
 #ifndef PF_RETOUCH_H
 #define PF_RETOUCH_H
 
-//#include <iostream>
-
-//#include "../base/format_info.hh"
-//#include "../base/operation.hh"
-//#include "../base/processor.hh"
-//#include "../base/rawbuffer.hh"
-
 #include "shapes.hh"
+#include "shapes_op.hh"
 
 namespace PF 
 {
@@ -74,5 +68,4 @@ ProcessorBase* new_retouch();
 }
 
 #endif 
-
 

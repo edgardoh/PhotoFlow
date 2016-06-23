@@ -385,6 +385,7 @@ PF::OperationsTreeDialog::OperationsTreeDialog( Image* img, LayerWidget* lw ):
 
 
   op_misc.get_tree().add_op( _("Draw"), "draw" );
+  op_misc.get_tree().add_op( _("Draw Shapes"), "draw_shapes" );
   op_misc.get_tree().add_op( _("Clone stamp"), "clone_stamp" );
   op_misc.get_tree().add_op( _("Retouch"), "retouch" );
   op_misc.get_tree().add_op( _("Clone layer"), "clone" );

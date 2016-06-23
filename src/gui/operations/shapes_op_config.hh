@@ -27,13 +27,14 @@
 
  */
 
-#ifndef SHAPES_CONFIG_HH
-#define SHAPES_CONFIG_HH
+#ifndef SHAPES_OP_CONFIG_HH
+#define SHAPES_OP_CONFIG_HH
 
 #include <gtkmm.h>
 
 #include "../operation_config_gui.hh"
 #include "../../operations/shapes.hh"
+#include "../../operations/shapes_op.hh"
 
 #include "../widgets/selector.hh"
 #include "../widgets/curveeditor.hh"
@@ -43,6 +44,7 @@ namespace PF {
 
   class ShapesConfigGUI: public OperationConfigGUI
   {
+  protected:
     Gtk::HBox curvesBox;
     CurveEditor falloffCurveEditor;
 
@@ -53,9 +55,16 @@ namespace PF {
     Slider falloff_sl;
     Slider opacity_sl;
     Slider size_sl;
+    Slider angle_sl;
 
+    CheckBox hide_outline_chk;
+    CheckBox lock_source_chk;
+    CheckBox lock_shapes_chk;
+
+  private:
     Point pt_current;
     Point pt_source;
+    Point last_pt_origin;
     
     int shape_type_selected;
     
@@ -69,8 +78,13 @@ namespace PF {
 
     Line line_add;
     
-    
+    std::vector<int> shapes_selected;
 
+    void falloff_sl_changed();
+    void opacity_sl_changed();
+    void size_sl_changed();
+    void angle_sl_changed();
+    
     void pt_screen2image(Point& pt);
     void pt_image2screen(Point& pt);
 
@@ -82,6 +96,12 @@ namespace PF {
     void set_opacity(float v) { opacity_sl.get_adjustment()->set_value(v*100.f); }
     int get_size(int shape_type) { return size_sl.get_adjustment()->get_value(); }
     void set_size(int shape_type, int v) { size_sl.get_adjustment()->set_value(v); }
+    float get_angle() { return angle_sl.get_adjustment()->get_value(); }
+    void set_angle(float v) { angle_sl.get_adjustment()->set_value(v); }
+
+    bool get_hide_outline() { return hide_outline_chk.get_active(); }
+    bool get_lock_source() { return lock_source_chk.get_active(); }
+    bool get_lock_shapes() { return lock_shapes_chk.get_active(); }
     
     void draw_shape(Shape* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
     void draw_node(int x, int y, PF::PixelBuffer& buf_out, bool active_point);
@@ -96,8 +116,13 @@ namespace PF {
     void draw_rectangle(Rect1* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
     
     void add_new_shape(PF::ShapesPar* par, int shape_type, Point& initial_pos, Point& source_pos);
-
-//    void draw_outline( PixelBuffer& buf_in, PixelBuffer& buf_out, ClosedSplineCurve& shape );
+    
+    void selection_clear() { shapes_selected.clear(); }
+    void selection_replace(int n);
+    void selection_add(int n);
+    void selection_remove(int n);
+    bool is_shape_selected(int n);
+    
 
   public:
     ShapesConfigGUI( Layer* l );
@@ -124,3 +149,4 @@ namespace PF {
 }
 
 #endif
+

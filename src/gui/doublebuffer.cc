@@ -320,7 +320,7 @@ void PF::PixelBuffer::draw_circle( int x0, int y0, int radius, PixelBuffer& inbu
   }
 }
 
-void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, float alpha, guint8 r, guint8 g, guint8 b )
+void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, guint8 r, guint8 g, guint8 b, int quadrant )
 {
   guint8* px = get_pxbuf()->get_pixels();
   const int rs = get_pxbuf()->get_rowstride();
@@ -366,6 +366,11 @@ void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, 
         right2 = buf_right;
     }
 
+    if ( quadrant != -1 && quadrant != 0 && quadrant != 3) row1 = buf_top - 1;
+    if ( quadrant != -1 && quadrant != 1 && quadrant != 2) row2 = buf_top - 1;
+    if ( quadrant != -1 && quadrant != 0 && quadrant != 1) right2 = right + 1;
+    if ( quadrant != -1 && quadrant != 2 && quadrant != 3) left = left2 + 1;
+   
     if( (row1 >= buf_top) && (row1 <= buf_bottom) ) {
       guint8* p = px + rs*(row1-buf_top) + (left-buf_left)*bl;
       if( left2 <= right ) {
@@ -402,7 +407,7 @@ void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, 
 }
 
 
-void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, float alpha, PixelBuffer& inbuf )
+void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, PixelBuffer& inbuf, int quadrant )
 {
   guint8* inpx = inbuf.get_pxbuf()->get_pixels();
   guint8* px = get_pxbuf()->get_pixels();
@@ -449,6 +454,11 @@ void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, 
         right2 = buf_right;
     }
 
+    if ( quadrant != -1 && quadrant != 0 && quadrant != 3) row1 = buf_top - 1;
+    if ( quadrant != -1 && quadrant != 1 && quadrant != 2) row2 = buf_top - 1;
+    if ( quadrant != -1 && quadrant != 0 && quadrant != 1) right2 = right + 1;
+    if ( quadrant != -1 && quadrant != 2 && quadrant != 3) left = left2 + 1;
+   
     if( (row1 >= buf_top) && (row1 <= buf_bottom) ) {
       guint8* inp = inpx + rs*(row1-buf_top) + (left-buf_left)*bl;
       guint8* p = px + rs*(row1-buf_top) + (left-buf_left)*bl;
@@ -486,6 +496,179 @@ void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, 
       }
     }
   }
+}
+
+// Draw an ellipse centered at (cx, cy) with dimensions
+// wid and hgt rotated angle degrees.
+void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, float angle, guint8 r, guint8 g, guint8 b, int quadrant )
+{
+  if (angle == 0.f) {
+    draw_ellipse( x0, y0, radius_x, radius_y, r, g, b, quadrant );
+    return;
+  }
+  
+  guint8* px = get_pxbuf()->get_pixels();
+  const int rs = get_pxbuf()->get_rowstride();
+  const int bl = 3;
+
+  int buf_left = get_rect().left;
+  int buf_right = get_rect().left+get_rect().width-1;
+  int buf_top = get_rect().top;
+  int buf_bottom = get_rect().top+get_rect().height-1;
+
+  float sin_angle;
+  float cos_angle;
+  float theta;
+  float dtheta;
+  int x; // A point on the ellipse.
+  int y;
+  int RX; // The point rotated.
+  int RY;
+
+  float _angle = angle * (float)M_PI / 180.f;
+  sin_angle = sinf(_angle);
+  cos_angle = cosf(_angle);
+
+  theta = 0;
+  dtheta = 2.f * (float)M_PI / 5000.f;
+
+  // Find the first point.
+  x = (float)radius_x * cosf(theta);
+  y = (float)radius_y * sinf(theta);
+
+  RX = x0 + (float)x * cos_angle + (float)y * sin_angle;
+  RY = y0 - (float)x * sin_angle + (float)y * cos_angle;
+  int current_x = RX;
+  int current_y = RY;
+
+  if ( quadrant == -1 ) {
+    while ( theta < 2.f * (float)M_PI ) {
+      theta = theta + dtheta;
+  
+      x = (float)radius_x * cosf(theta);
+      y = (float)radius_y * sinf(theta);
+  
+      RX = x0 + x * cos_angle + y * sin_angle;
+      RY = y0 - x * sin_angle + y * cos_angle;
+  
+      draw_line( current_x, current_y, RX, RY, r, g, b );
+  
+      current_x = RX;
+      current_y = RY;
+    }
+  }
+  else {
+    while ( theta < 2.f * (float)M_PI ) {
+      theta = theta + dtheta;
+  
+      x = (float)radius_x * cosf(theta);
+      y = (float)radius_y * sinf(theta);
+  
+      bool draw = false;
+      if ( quadrant == 0 ) 
+        draw = (x >= 0 && y < 0);
+      else if ( quadrant == 1 ) 
+        draw = (x >= 0 && y >= 0);
+      else if ( quadrant == 2 ) 
+        draw = (x < 0 && y >= 0);
+      else if ( quadrant == 3 ) 
+        draw = (x < 0 && y < 0);
+      
+      RX = x0 + x * cos_angle + y * sin_angle;
+      RY = y0 - x * sin_angle + y * cos_angle;
+  
+      if (draw) draw_line( current_x, current_y, RX, RY, r, g, b );
+  
+      current_x = RX;
+      current_y = RY;
+    }
+ }
+}
+
+
+void PF::PixelBuffer::draw_ellipse( int x0, int y0, int radius_x, int radius_y, float angle, PixelBuffer& inbuf, int quadrant )
+{
+  if (angle == 0.f) {
+    draw_ellipse( x0, y0, radius_x, radius_y, inbuf, quadrant );
+    return;
+  }
+  
+  guint8* px = get_pxbuf()->get_pixels();
+  const int rs = get_pxbuf()->get_rowstride();
+  const int bl = 3;
+
+  int buf_left = get_rect().left;
+  int buf_right = get_rect().left+get_rect().width-1;
+  int buf_top = get_rect().top;
+  int buf_bottom = get_rect().top+get_rect().height-1;
+
+  float sin_angle;
+  float cos_angle;
+  float theta;
+  float dtheta;
+  int x; // A point on the ellipse.
+  int y;
+  int RX; // The point rotated.
+  int RY;
+
+  float _angle = angle * (float)M_PI / 180.f;
+  sin_angle = sinf(_angle);
+  cos_angle = cosf(_angle);
+
+  theta = 0;
+  dtheta = 2.f * (float)M_PI / 5000.f;
+
+  // Find the first point.
+  x = (float)radius_x * cosf(theta);
+  y = (float)radius_y * sinf(theta);
+
+  RX = x0 + (float)x * cos_angle + (float)y * sin_angle;
+  RY = y0 - (float)x * sin_angle + (float)y * cos_angle;
+  int current_x = RX;
+  int current_y = RY;
+
+  if ( quadrant == -1 ) {
+    while ( theta < 2.f * (float)M_PI ) {
+      theta = theta + dtheta;
+  
+      x = (float)radius_x * cosf(theta);
+      y = (float)radius_y * sinf(theta);
+  
+      RX = x0 + x * cos_angle + y * sin_angle;
+      RY = y0 - x * sin_angle + y * cos_angle;
+  
+      draw_line( current_x, current_y, RX, RY, inbuf );
+  
+      current_x = RX;
+      current_y = RY;
+    }
+  }
+  else {
+    while ( theta < 2.f * (float)M_PI ) {
+      theta = theta + dtheta;
+  
+      x = (float)radius_x * cosf(theta);
+      y = (float)radius_y * sinf(theta);
+  
+      bool draw = false;
+      if ( quadrant == 0 ) 
+        draw = (x >= 0 && y < 0);
+      else if ( quadrant == 1 ) 
+        draw = (x >= 0 && y >= 0);
+      else if ( quadrant == 2 ) 
+        draw = (x < 0 && y >= 0);
+      else if ( quadrant == 3 ) 
+        draw = (x < 0 && y < 0);
+      
+      RX = x0 + x * cos_angle + y * sin_angle;
+      RY = y0 - x * sin_angle + y * cos_angle;
+  
+      if (draw) draw_line( current_x, current_y, RX, RY, inbuf );
+  
+      current_x = RX;
+      current_y = RY;
+    }
+ }
 }
 
 void PF::PixelBuffer::draw_line( int x1, int y1, int x2, int y2, guint8 r, guint8 g, guint8 b )

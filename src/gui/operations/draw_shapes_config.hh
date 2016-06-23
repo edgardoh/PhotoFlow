@@ -27,12 +27,40 @@
 
  */
 
-#include "shapes_mask_config.hh"
+#ifndef DRAW_SHAPES_CONFIG_DIALOG_HH
+#define DRAW_SHAPES_CONFIG_DIALOG_HH
 
+#include <gtkmm.h>
 
-PF::ShapesMaskConfigGUI::ShapesMaskConfigGUI( PF::Layer* layer ):
-ShapesConfigGUI( layer, "shapes mask" )
-{
+#include "../operation_config_gui.hh"
+#include "../../operations/draw_shapes.hh"
+#include "shapes_op_config.hh"
+
+namespace PF {
+
+  class DrawShapesConfigGUI: public ShapesConfigGUI
+  {
+    Gtk::VBox controlsBox;
+    Gtk::HBox colorButtonsBox1;
+    Gtk::HBox colorButtonsBox2;
+
+    Gtk::Label fgd_color_label, bgd_color_label;
+
+    Gtk::ColorButton fgd_color_button, bgd_color_button;
+    CheckBox bgd_transparent_checkbox;
+
+    virtual bool get_has_source() { return false; }
+
+  public:
+    DrawShapesConfigGUI( Layer* l );
+    
+
+    void on_fgd_color_changed();
+    void on_bgd_color_changed();
+
+  };
 
 }
+
+#endif
 

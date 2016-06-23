@@ -27,68 +27,113 @@
 
  */
 
-#ifndef PF_SHAPES_MASK_H
-#define PF_SHAPES_MASK_H
+#ifndef PF_SHAPES_OP_HH
+#define PF_SHAPES_OP_HH
 
+#include <math.h>
+
+#include <assert.h>
+#include <iostream>
+
+#include <gtkmm.h>
+
+#include "../base/format_info.hh"
+#include "../base/color.hh"
 #include "../base/processor.hh"
+#include "../base/splinecurve.hh"
+#include "../gui/doublebuffer.hh"
+
 #include "shapes.hh"
-#include "shapes_op.hh"
+#include "curves.hh"
 
 namespace PF 
 {
 
-class ShapesMaskPar: public ShapesPar
+class ShapesPar: public OpParBase
 {
+  Property<SplineCurve> falloff_curve;
+  Property<ShapesGroup> shapes;
+//  Property<bool> hide_outline;
+//  Property<bool> lock_source;
+  
+protected:
+  ProcessorBase* shapes_algo;
 
 public:
-  ShapesMaskPar();
-  ~ShapesMaskPar();
 
+  ShapesPar();
+
+  ShapesGroup& get_shapes_group() { return shapes.get(); }
+  ProcessorBase* get_shapes_algo() { return shapes_algo; }
+  SplineCurve& get_shapes_falloff_curve() { return falloff_curve.get(); }
+//  bool get_hide_outline() { return hide_outline.get(); }
+//  bool get_lock_source() { return lock_source.get(); }
+
+  void shapes_modified() { shapes.modified(); }
+  
+  int add_shape(Shape* shape) { return shapes.get().add(shape); }
+  void remove_shape(int n) { return shapes.get().remove(n); }
+
+  PF::Shape* get_shape(int index) { return shapes.get().get_shape(index); }
+  
+  int get_shapes_count() { return shapes.get().size(); }
+
+  bool needs_input() { return false; }
   bool has_intensity() { return false; }
-  bool needs_input() { return true; }
 
   VipsImage* build(std::vector<VipsImage*>& in, int first,
       VipsImage* imap, VipsImage* omap,
       unsigned int& level);
+  
 };
 
 template < OP_TEMPLATE_DEF >
-class ShapesMaskProc
+class ShapesProc
 {
 public:
   void render(VipsRegion** in, int n, int in_first,
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* out, OpParBase* par)
   {
-    std::cout<<"PF::ShapesMaskProc::render()"<<std::endl;
+    std::cout<<"PF::ShapesProc::render()"<<std::endl;
   }
 };
 
 
+
 template < OP_TEMPLATE_DEF_TYPE_SPEC >
-class ShapesMaskProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
+class ShapesProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
 {
 public:
   void render(VipsRegion** ireg, int n, int in_first,
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* oreg, OpParBase* par)
   {
-    std::cout<<"PF::ShapesMaskProc::render() 2"<<std::endl;
+    std::cout<<"PF::ShapesProc::render() 2"<<std::endl;
   }
   
 };
 
-class ShapesMaskAlgoPar: public ShapesAlgoPar
+
+class ShapesAlgoPar: public OpParBase
 {
+  ShapesGroup shapes;
   
 public:
 
-  ShapesMaskAlgoPar();
+  ShapesAlgoPar();
 
-  ~ShapesMaskAlgoPar()
+  ~ShapesAlgoPar()
   {
   }
-  
+
+  ShapesGroup& get_shapes_group() { return shapes; }
+
+  void build_masks(ShapesGroup& sg, SplineCurve& scurve, unsigned int level);
+
+  PF::Shape* get_shape(int index) { return shapes.get_shape(index); }
+  int get_shapes_count() { return shapes.size(); }
+
   VipsImage* build(std::vector<VipsImage*>& in, int first,
       VipsImage* imap, VipsImage* omap,
       unsigned int& level);
@@ -96,21 +141,20 @@ public:
 };
 
 template < OP_TEMPLATE_DEF >
-class ShapesMaskAlgoProc
+class ShapesAlgoProc
 {
 public:
   void render(VipsRegion** in, int n, int in_first,
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* out, OpParBase* par)
   {
-    std::cout<<"PF::ShapesMaskAlgoProc::render()"<<std::endl;
+    std::cout<<"PF::ShapesAlgoProc::render()"<<std::endl;
   }
 };
 
 
-
 template < OP_TEMPLATE_DEF_TYPE_SPEC >
-class ShapesMaskAlgoProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
+class ShapesAlgoProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
 {
 public:
   void render(VipsRegion** ireg, int n, int in_first,
@@ -120,38 +164,39 @@ public:
     Rect *r = &oreg->valid;
     Rect *ir = &ireg[0]->valid;
     const int ch = oreg->im->Bands;
-    const int bands = oreg->im->Bands;
+//    const int bands = oreg->im->Bands;
     float* pout;
 
     for( int y = 0; y < r->height; y++ ) {
       pout = (float*)VIPS_REGION_ADDR( oreg, r->left, r->top+y );
-
-      for( int x = 0; x < r->width; x++, pout += bands ) {
+      
+      memset(pout, 1.0f, r->width*ch*sizeof(float));
+/*      for( int x = 0; x < r->width; x++, pout += bands ) {
         for( int b = 0; b < bands; b++ )
           pout[b] = 1.f;
-      }
+      }*/
     }
 
-    ShapesMaskAlgoPar* opar = dynamic_cast<ShapesMaskAlgoPar*>( par );
+    ShapesAlgoPar* opar = dynamic_cast<ShapesAlgoPar*>( par );
     if (opar == NULL) {
-      std::cout<<"PF::ShapesMaskAlgoProc::render() (opar == NULL)"<<std::endl;
+      std::cout<<"PF::ShapesAlgoProc::render() (opar == NULL)"<<std::endl;
       return;
     }
 
     for (int i = 0; i < opar->get_shapes_count(); i++) {
       PF::Shape* shape = opar->get_shape(i);
       if (shape == NULL) {
-        std::cout<<"PF::ShapesMaskAlgoProc::render() (shape == NULL) "<<std::endl;
+        std::cout<<"PF::ShapesAlgoProc::render() (shape == NULL) "<<std::endl;
         return;
       }
 
       float *mask = shape->get_mask();
       if (mask == NULL) {
-        std::cout<<"PF::ShapesMaskAlgoProc::render() (mask == NULL) "<<std::endl;
+        std::cout<<"PF::ShapesAlgoProc::render() (mask == NULL) "<<std::endl;
         return;
       }
 
-      VipsRect mask_area, out_area/*, in_area*/;
+      VipsRect mask_area, out_area;
       shape->get_mask_rect(&mask_area);
 
       vips_rect_intersectrect( r, &mask_area, &out_area );
@@ -174,8 +219,9 @@ public:
 };
 
 
-  ProcessorBase* new_shapes_mask();
+  ProcessorBase* new_shapes();
 }
 
 #endif 
+
 

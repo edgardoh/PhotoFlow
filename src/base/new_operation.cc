@@ -121,6 +121,10 @@ PF::ProcessorBase* PF::new_operation( std::string op_type, PF::Layer* current_la
 
     processor = new_shapes_mask();
 
+  } else if( op_type == "draw_shapes" ) {
+
+    processor = new_draw_shapes();
+
   } else if( op_type == "brightness_contrast" ) {
 
     //processor = new PF::Processor<PF::BrightnessContrastPar,PF::BrightnessContrast>();

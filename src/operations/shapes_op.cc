@@ -27,24 +27,31 @@
 
  */
 
-#include "shapes_mask.hh"
+#include "shapes_op.hh"
 #include "../base/processor.hh"
 
 
-PF::ShapesMaskPar::ShapesMaskPar():
-ShapesPar()
+PF::ShapesPar::ShapesPar():
+                OpParBase(),
+                falloff_curve( "falloff_curve", this ), 
+                shapes("shapes_grp", this)/*,
+                hide_outline( "hide_outline", this, false ),
+                lock_source( "lock_source", this, true )*/
 {
-  shapes_algo = new PF::Processor<PF::ShapesMaskAlgoPar,PF::ShapesMaskAlgoProc>();
+  shapes_algo = new PF::Processor<PF::ShapesAlgoPar,PF::ShapesAlgoProc>();
   
-  set_type( "shapes_mask" );
-  set_default_name( _("shapes mask") );
+  set_type( "shapes" );
+  set_default_name( _("shapes") );
 }
 
-PF::ShapesMaskPar::~ShapesMaskPar()
+PF::ShapesAlgoPar::ShapesAlgoPar():
+                OpParBase()
 {
+  set_type( "shapes_algo" );
+  set_default_name( _("shapes_algo") );
 }
 
-VipsImage* PF::ShapesMaskPar::build(std::vector<VipsImage*>& in, int first,
+VipsImage* PF::ShapesPar::build(std::vector<VipsImage*>& in, int first,
     VipsImage* imap, VipsImage* omap,
     unsigned int& level)
 {
@@ -56,16 +63,16 @@ VipsImage* PF::ShapesMaskPar::build(std::vector<VipsImage*>& in, int first,
   std::vector<VipsImage*> in2;
 
   if (shapes_algo == NULL) {
-    std::cout<<"PF::ShapesMaskPar::build() (shapes_algo == NULL)"<<std::endl;
+    std::cout<<"PF::ShapesPar::build() (shapes_algo == NULL)"<<std::endl;
     return NULL;
   }
   if (shapes_algo->get_par() == NULL) {
-    std::cout<<"PF::ShapesMaskPar::build() (shapes_algo->get_par() == NULL)"<<std::endl;
+    std::cout<<"PF::ShapesPar::build() (shapes_algo->get_par() == NULL)"<<std::endl;
     return NULL;
   }
-  ShapesMaskAlgoPar* shapes_algo_par = dynamic_cast<ShapesMaskAlgoPar*>( shapes_algo->get_par() );
+  ShapesAlgoPar* shapes_algo_par = dynamic_cast<ShapesAlgoPar*>( shapes_algo->get_par() );
   if (shapes_algo_par == NULL) {
-    std::cout<<"PF::ShapesMaskPar::build() (shapes_algo_par == NULL)"<<std::endl;
+    std::cout<<"PF::ShapesPar::build() (shapes_algo_par == NULL)"<<std::endl;
     return NULL;
   }
 
@@ -76,22 +83,28 @@ VipsImage* PF::ShapesMaskPar::build(std::vector<VipsImage*>& in, int first,
   in2.clear();
   in2.push_back( srcimg );
   VipsImage* out = shapes_algo_par->build( in2, 0, NULL, NULL, level );
-//  PF_UNREF( srcimg, "ShapesMaskPar::build(): srcimg unref" );
+  PF_UNREF( srcimg, "ShapesPar::build(): srcimg unref" );
 
   set_image_hints( out );
 
   return out;
-  
 }
 
-PF::ShapesMaskAlgoPar::ShapesMaskAlgoPar():
-    ShapesAlgoPar()
+void PF::ShapesAlgoPar::build_masks(ShapesGroup& sg, SplineCurve& scurve, unsigned int level)
 {
-  set_type( "shapes_algo" );
-  set_default_name( _("shapes_algo") );
+  int scale_factor = 1;
+  for(unsigned int l = 0; l < level; l++ ) {
+    scale_factor *= 2;
+  }
+  
+  shapes.clear();
+  shapes = sg;
+  shapes.scale(scale_factor);
+  shapes.build_mask(scurve);
+
 }
 
-VipsImage* PF::ShapesMaskAlgoPar::build(std::vector<VipsImage*>& in, int first,
+VipsImage* PF::ShapesAlgoPar::build(std::vector<VipsImage*>& in, int first,
     VipsImage* imap, VipsImage* omap,
     unsigned int& level)
 {
@@ -100,9 +113,8 @@ VipsImage* PF::ShapesMaskAlgoPar::build(std::vector<VipsImage*>& in, int first,
   return out;
 }
 
-
-PF::ProcessorBase* PF::new_shapes_mask()
+PF::ProcessorBase* PF::new_shapes()
 {
-  return( new PF::Processor<PF::ShapesMaskPar,PF::ShapesMaskProc>() );
+  return( new PF::Processor<PF::ShapesPar,PF::ShapesProc>() );
 }
 

@@ -192,8 +192,11 @@ public:
   void draw_circle( int x0, int y0, int radius, guint8 r, guint8 g, guint8 b );
   void draw_circle( int x0, int y0, int radius, PixelBuffer& inbuf );
 
-  void draw_ellipse( int x0, int y0, int radius_x, int radius_y, float alpha, guint8 r, guint8 g, guint8 b );
-  void draw_ellipse( int x0, int y0, int radius_x, int radius_y, float alpha, PixelBuffer& inbuf );
+  void draw_ellipse( int x0, int y0, int radius_x, int radius_y, guint8 r, guint8 g, guint8 b, int quadrant=-1 );
+  void draw_ellipse( int x0, int y0, int radius_x, int radius_y, PixelBuffer& inbuf, int quadrant=-1 );
+
+  void draw_ellipse( int x0, int y0, int radius_x, int radius_y, float angle, guint8 r, guint8 g, guint8 b, int quadrant=-1 );
+  void draw_ellipse( int x0, int y0, int radius_x, int radius_y, float angle, PixelBuffer& inbuf, int quadrant=-1 );
 
   void draw_line( int x1, int y1, int x2, int y2, guint8 r, guint8 g, guint8 b );
   void draw_line( int x1, int y1, int x2, int y2, PixelBuffer& inbuf );

@@ -32,9 +32,7 @@
 
 #include <gtkmm.h>
 
-//#include "../operation_config_gui.hh"
-//#include "../../operations/shapes_mask.hh"
-#include "shapes_config.hh"
+#include "shapes_op_config.hh"
 
 namespace PF {
 
@@ -50,3 +48,4 @@ namespace PF {
 }
 
 #endif
+

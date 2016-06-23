@@ -48,13 +48,96 @@
 namespace PF 
 {
 
-class ShapeMask
+// -----------------------------------
+// ShapeColor
+// -----------------------------------
+
+class ShapeColor
 {
+  float r, g, b;
+
 public:
-  ShapeMask() { }
+  ShapeColor(): r(0), g(0), b(0)
+  {
+  }
+  ShapeColor(float r1, float g1, float b1): r(r1), g(g1), b(b1)
+  {
+  }
+  ShapeColor(const ShapeColor& other): r(other.r), g(other.g), b(other.b)
+  {
+  }
+  virtual ~ShapeColor() {}
   
+  void swap(ShapeColor& first)
+  {
+    std::swap(r, first.r);
+    std::swap(g, first.g);
+    std::swap(b, first.b);
+  }
   
+  ShapeColor& operator=(ShapeColor other)
+  {
+    this->swap(other);
+    return *this;
+  }
+  
+  float get_r() const { return r; }
+  void set_r(float s) { r = s; }
+  float get_g() const { return g; }
+  void set_g(float s) { g = s; }
+  float get_b() const { return b; }
+  void set_b(float s) { b = s; }
+
+  void set(float r1, float g1, float b1) { r = r1; g = g1; b = b1; }
+  void set(ShapeColor& c) { r = c.get_r(); g = c.get_g(); b = c.get_b(); }
+    
 };
+
+inline
+bool operator ==(const ShapeColor& l, const ShapeColor& r)
+{
+  if( l.get_r() != r.get_r() ) return false;
+  if( l.get_g() != r.get_g() ) return false;
+  if( l.get_b() != r.get_b() ) return false;
+  return true;
+}
+
+inline
+bool operator !=(const ShapeColor& l, const ShapeColor& r)
+{
+  return( !(l==r) );
+}
+
+
+inline std::istream& operator >>( std::istream& str, ShapeColor& shape )
+{
+  float r, g, b;
+
+  str>>r>>g>>b;
+  shape.set_r( r );
+  shape.set_g( g );
+  shape.set_b( b );
+  return str;
+}
+
+inline std::ostream& operator <<( std::ostream& str, const ShapeColor& shape )
+{
+  str<<shape.get_r()<<" "<<shape.get_g()<<" "<<shape.get_b()<<" ";
+  return str;
+}
+
+template<> inline
+void set_gobject_property< ShapeColor >(gpointer object, const std::string name,
+    const ShapeColor& value)
+{
+}
+
+template<> inline
+void set_gobject_property< std::vector<ShapeColor> >(gpointer object, const std::string name,
+    const std::vector<ShapeColor>& value)
+{
+}
+
 
 // -----------------------------------
 // Point
@@ -76,17 +159,6 @@ public:
   }
   virtual ~Point() {}
   
-/*  friend void swap(Point& first, Point& second) // nothrow
-  {
-      // enable ADL (not necessary in our case, but good practice)
-      using std::swap;
-
-      // by swapping the members of two classes,
-      // the two classes are effectively swapped
-      swap(first.x, second.x);
-      swap(first.y, second.y);
-  }
-  */
   void swap(Point& first)
   {
     std::swap(x, first.x);
@@ -95,9 +167,8 @@ public:
   
   Point& operator=(Point other)
   {
-//    swap(*this, other);
     this->swap(other);
-      return *this;
+    return *this;
   }
   
   int get_x() const { return x; }
@@ -126,6 +197,9 @@ public:
   int distance2(Point& pt) { return distance2(pt.get_x(), pt.get_y()); };
   float distance2segment2(Point& l1, Point& l2); // distance from point to segment (l1, l2) squared
   
+  int get_quadrant(Point& pt);
+  void rotate(Point& pivot, float angle);
+  void rotate(Point& pivot, float sin_angle, float cos_angle);
 };
 
 inline
@@ -186,17 +260,20 @@ class Shape
   std::vector<Point> falloff_points;
   bool has_source;
   Point source_point;
+  ShapeColor color;
+  float angle;
 
 protected:
   float *mask;
 
 public:
-  Shape(): shape_type(shape), size(0), opacity(1.f), falloff(0), has_source(false), mask(NULL)
+  Shape(): shape_type(shape), size(0), opacity(1.f), falloff(0), has_source(false), angle(0), mask(NULL)
   {
   }
   Shape(const Shape& other):
     shape_type(shape), size(other.size), opacity(other.opacity), falloff(other.falloff), 
-    points(other.points), falloff_points(other.falloff_points), has_source(other.has_source), source_point(other.source_point), mask(NULL)
+    points(other.points), falloff_points(other.falloff_points), has_source(other.has_source), 
+    source_point(other.source_point), color(other.color), angle(other.angle), mask(NULL)
   {
   }
   Shape(Point& d_init_pos, int d_size, float d_opacity, int d_falloff, bool d_has_source, Point& d_source_point): 
@@ -207,8 +284,9 @@ public:
     set_falloff(d_falloff);
     set_has_source(d_has_source);
     if ( get_has_source() ) set_source_point(d_source_point);
+    set_angle(0);
   }
-  virtual ~Shape() { if (mask != NULL) { free(mask); std::cout<<"PF::Shapes::~Shape() free(mask)"<<std::endl; } }
+  virtual ~Shape() { if (mask != NULL) { free(mask); } }
   
   enum shapeType
   {
@@ -247,8 +325,9 @@ public:
       first.points.swap(second.points);
       first.falloff_points.swap(second.falloff_points);
       swap(first.has_source, second.has_source);
-//      first.source_point.swap(second.source_point);
       first.source_point.swap(second.source_point);
+      first.color.swap(second.color);
+      swap(first.angle, second.angle);
   }
   
   Shape& operator=(Shape other)
@@ -294,6 +373,13 @@ public:
   const Point& get_source_point() const { return source_point; }
   void set_source_point(Point s) { source_point = s; }
 
+  ShapeColor& get_color() { return color; }
+  const ShapeColor& get_color() const { return color; }
+  void set_color(ShapeColor s) { color = s; }
+
+  float get_angle() const { return angle; }
+  void set_angle(float s) { angle = std::min(360.f, std::max(-360.f, s)); }
+
   virtual void offset(int x, int y);
   virtual void offset(Point& pt) { offset(pt.get_x(), pt.get_y()); }
   virtual void offset(Point prev, Point curr);
@@ -332,7 +418,7 @@ public:
   virtual void get_center(Point& pt);
   virtual void get_rect(VipsRect* rc);
   virtual void get_falloff_rect(VipsRect* rc);
-  virtual void get_mask_rect(VipsRect* rc) { get_falloff_rect(rc); }
+  virtual void get_mask_rect(VipsRect* rc) { get_falloff_rect(rc); rotate(rc); }
 
   virtual void expand(int n);
   virtual void expand_falloff(int n);
@@ -349,6 +435,11 @@ public:
   static void get_segment_bounding_rect(Point& pt1, Point& pt2, int expand, VipsRect* rc);
   static void get_expanded_rec_from_line(Point& pt1, Point& pt2, int amount, Point& a, Point& b, Point& c, Point& d);
 
+  void rotate(VipsRect* rc);
+  void rotate(VipsRect* rc, float _angle);
+  void rotate(VipsRect* rc, float sin_angle, float cos_angle);
+  void rotate(VipsRect* rc, float sin_angle, float cos_angle, Point& center);
+
 };
 
 inline
@@ -362,6 +453,8 @@ bool operator ==(const Shape& l, const Shape& r)
   if( l.get_falloff_points() != r.get_falloff_points() ) return false;
   if( l.get_has_source() != r.get_has_source() ) return false;
   if( l.get_source_point() != r.get_source_point() ) return false;
+  if( l.get_color() != r.get_color() ) return false;
+  if( l.get_angle() != r.get_angle() ) return false;
   return true;
       }
 
@@ -379,19 +472,21 @@ inline std::istream& operator >>( std::istream& str, Shape& shape )
   float opacity;
   int falloff;
   bool has_source;
+  float angle;
 
-  str>>s_type>>size>>opacity>>falloff>>shape.get_points()>>shape.get_falloff_points()>>has_source>>shape.get_source_point();
+  str>>s_type>>size>>opacity>>falloff>>shape.get_points()>>shape.get_falloff_points()>>has_source>>shape.get_source_point()>>shape.get_color()>>angle;
   shape.set_type( s_type );
   shape.set_size( size );
   shape.set_opacity( opacity );
   shape.set_falloff( falloff );
   shape.set_has_source( has_source );
+  shape.set_angle( angle );
   return str;
 }
 
 inline std::ostream& operator <<( std::ostream& str, const Shape& shape )
 {
-  str<<shape.get_type()<<" "<<shape.get_size()<<" "<<shape.get_opacity()<<" "<<shape.get_falloff()<<" "<<shape.get_points()<<shape.get_falloff_points()<<shape.get_has_source()<<" "<<shape.get_source_point();
+  str<<shape.get_type()<<" "<<shape.get_size()<<" "<<shape.get_opacity()<<" "<<shape.get_falloff()<<" "<<shape.get_points()<<shape.get_falloff_points()<<shape.get_has_source()<<" "<<shape.get_source_point()<<shape.get_color()<<shape.get_angle()<<" ";
   return str;
 }
 
@@ -430,6 +525,8 @@ public:
     add_point(d_init_pos);
     add_point(d_init_pos);
   }
+
+  void set_angle(float s) { }
 
   void expand_falloff(int n);
   
@@ -471,6 +568,8 @@ public:
     PF::Shape::add_point(d_init_pos);
   }
 
+  void set_angle(float s) { }
+  
   Point& get_point() { return PF::Shape::get_point(0); }
   void set_point(Point& pt) { PF::Shape::set_point(0, pt); }
   
@@ -533,7 +632,7 @@ public:
   }
   
   int get_radius_x() const { return get_size(); }
-  void set_radius_x(int s) { set_size(s); }
+  void set_radius_x(int s) { Shape::set_size(s); }
 
   int get_radius_y() const { return radius_y; }
   void set_radius_y(int s) { radius_y = std::max(0, s); }
@@ -546,15 +645,18 @@ public:
   Point& get_point() { return PF::Shape::get_point(0); }
   void set_point(Point& pt) { PF::Shape::set_point(0, pt); }
   
-  void expand(int n);
+  void expand(int n) { set_size(get_size()+n); }
+  void set_size(int n);
   void expand_falloff(int n);
   
   int hit_test(Point& pt, int& additional);
+  int hit_test(Point& pt, float angle_1, int& additional);
   
   void offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source);
   void offset(int x, int y) { PF::Shape::offset(x, y); }
   void offset(Point& pt) { PF::Shape::offset(pt); }
 
+  void get_center(Point& pt, VipsRect& rc) { PF::Shape::get_center(pt, rc); }
   void get_center(Point& pt) { pt = PF::Shape::get_point(0); }
   
   void add_point(Point pt) { }
@@ -566,6 +668,7 @@ public:
   void scale(int scale) { PF::Shape::scale(scale); radius_y /= scale; }
   
   void build_mask(SplineCurve& scurve);
+  void build_mask(SplineCurve& scurve, float angle_1);
 };
 
 inline
@@ -648,6 +751,8 @@ public:
     PF::Shape::add_point(pt);
   }
 
+  void set_angle(float s) { }
+  
   void add_point(Point pt) { }
   void insert_point(Point& pt, int position) { }
 
@@ -661,6 +766,7 @@ public:
   int hit_test(Point& pt, int& additional);
   
   void build_mask(SplineCurve& scurve);
+  void build_mask(SplineCurve& scurve, float _angle);
   
   void lines_intersects(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt);
   
@@ -678,13 +784,14 @@ class ShapesGroup
   std::vector<Rect1> rectangles1;
   std::vector< std::pair<int,int> > shapes_order; // shape_type - shape_index
 
+  ShapeColor current_color;
 
 public:
   ShapesGroup()
   {
   }
   ShapesGroup(const ShapesGroup& other): lines(other.lines), circles(other.circles), ellipses(other.ellipses), 
-      rectangles1(other.rectangles1), shapes_order(other.shapes_order)
+      rectangles1(other.rectangles1), shapes_order(other.shapes_order), current_color(other.current_color)
   {
   }
   virtual ~ShapesGroup() { }
@@ -702,7 +809,7 @@ public:
       first.ellipses.swap(second.ellipses);
       first.rectangles1.swap(second.rectangles1);
       first.shapes_order.swap(second.shapes_order);
-
+      first.current_color.swap(second.current_color);
   }
   
   ShapesGroup& operator=(ShapesGroup other)
@@ -726,14 +833,18 @@ public:
   std::vector< std::pair<int,int> >& get_shapes_order() { return shapes_order; }
   const std::vector< std::pair<int,int> >& get_shapes_order() const { return shapes_order; }
 
+  void set_current_color(ShapeColor& c) { current_color = c; }
+  ShapeColor& get_current_color() { return current_color; }
+  const ShapeColor& get_current_color() const { return current_color; }
+  
   int size() { return get_shapes_order().size(); }
   
   int get_shape_type(int n) { return get_shapes_order().at(n).first; }
 
-//  PF::Shape& get_shape(int index);
   PF::Shape* get_shape(int index);
   
   int add(Shape* shape_source);
+  void remove(int n);
   
   void clear();
   
@@ -750,6 +861,7 @@ bool operator ==(const ShapesGroup& l, const ShapesGroup& r)
   if( l.get_ellipses() != r.get_ellipses() ) return false;
   if( l.get_rectangles() != r.get_rectangles() ) return false;
   if( l.get_shapes_order() != r.get_shapes_order() ) return false;
+  if( l.get_current_color() != r.get_current_color() ) return false;
   return true;
       }
 
@@ -762,14 +874,14 @@ bool operator !=(const ShapesGroup& l, const ShapesGroup& r)
 
 inline std::istream& operator >>( std::istream& str, ShapesGroup& shape )
 {
-  str>>shape.get_lines()>>shape.get_circles()>>shape.get_ellipses()>>shape.get_rectangles()>>shape.get_shapes_order();
+  str>>shape.get_lines()>>shape.get_circles()>>shape.get_ellipses()>>shape.get_rectangles()>>shape.get_shapes_order()>>shape.get_current_color();
 
   return str;
 }
 
 inline std::ostream& operator <<( std::ostream& str, const ShapesGroup& shape )
 {
-  str<<shape.get_lines()<<shape.get_circles()<<shape.get_ellipses()<<shape.get_rectangles()<<shape.get_shapes_order();
+  str<<shape.get_lines()<<shape.get_circles()<<shape.get_ellipses()<<shape.get_rectangles()<<shape.get_shapes_order()<<shape.get_current_color();
   return str;
 }
 
@@ -786,293 +898,6 @@ void set_gobject_property< std::vector<ShapesGroup> >(gpointer object, const std
 }
 
 
-class ShapesPar: public OpParBase
-{
-  Property<SplineCurve> falloff_curve;
-/*  Property< std::vector<Line> > lines;
-  Property< std::vector<Circle1> > circles;
-  Property< std::vector<Ellipse> > ellipses;
-  Property< std::vector<Rect1> > rectangles1;
-  Property< std::vector< std::pair<int,int> > > shapes_order; // shape_type - shape_index
-*/
-  Property<ShapesGroup> shapes;
-  
-  ProcessorBase* shapes_algo;
-
-//  int scale_factor;
-
-
-public:
-
-  ShapesPar();
-
-/*  enum shape_type
-  {
-    type_none = 0,
-    type_line = 1,
-    type_circle = 2,
-    type_ellipse = 3,
-    type_rectangle = 4,
-  };
-*/
-  ShapesGroup& get_ShapesGroup() { return shapes.get(); }
-  ProcessorBase* get_shapes_algo() { return shapes_algo; }
-  
-//  int get_scale_factor() { return scale_factor; }
-//  void set_scale_factor(int s) { scale_factor = s; }
-
-  SplineCurve& get_shapes_falloff_curve() { return falloff_curve.get(); }
-
-  void shapes_modified() { shapes.modified(); }
-  
-  int add_shape(Shape* shape) { return shapes.get().add(shape); }
-/*  void add_shape(Line& shape) { shapes.get().add(shape); }
-  void add_shape(Circle1& shape) { shapes.get().add(shape); }
-  void add_shape(Ellipse& shape) { shapes.get().add(shape); }
-  void add_shape(Rect1& shape) { shapes.get().add(shape); }
-*/
-//  PF::Shape& get_shape(int index) { return shapes.get().get_shape(index); }
-  PF::Shape* get_shape(int index) 
-  { 
-    PF::Shape* shape = shapes.get().get_shape(index);
-    if (shape == NULL)
-        std::cout<<"PF::ShapesPar::get_shape() (shape == NULL) "<<std::endl;
-    return  shape;
-  }
-  int get_shapes_count() { return shapes.get().size(); }
-//  int get_shape_type(int n) { return get_shapes_order().at(n).first; }
-  
-//  void build_masks(unsigned int level);
-
-/*  std::vector<Line>& get_lines() { return lines.get(); }
-  std::vector<Circle1>& get_circles() { return circles.get(); }
-  std::vector<Ellipse>& get_ellipses() { return ellipses.get(); }
-  std::vector<Rect1>& get_rectangles1() { return rectangles1.get(); }
-  std::vector< std::pair<int,int> >& get_shapes_order() { return shapes_order.get(); }
-  */
-  bool needs_input() { return false; }
-  bool has_intensity() { return false; }
-
-  VipsImage* build(std::vector<VipsImage*>& in, int first,
-      VipsImage* imap, VipsImage* omap,
-      unsigned int& level);
-};
-
-template < OP_TEMPLATE_DEF >
-class ShapesProc
-{
-public:
-  void render(VipsRegion** in, int n, int in_first,
-      VipsRegion* imap, VipsRegion* omap,
-      VipsRegion* out, OpParBase* par)
-  {
-    std::cout<<"PF::ShapesProc::render()"<<std::endl;
-  }
-};
-
-
-
-template < OP_TEMPLATE_DEF_TYPE_SPEC >
-class ShapesProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
-{
-public:
-  void render(VipsRegion** ireg, int n, int in_first,
-      VipsRegion* imap, VipsRegion* omap,
-      VipsRegion* oreg, OpParBase* par)
-  {
-    std::cout<<"PF::ShapesProc::render() 2"<<std::endl;
-  }
-  
-};
-
-
-class ShapesAlgoPar: public OpParBase
-{
-/*  std::vector<Line> lines;
-  std::vector<Circle1> circles;
-  std::vector<Ellipse> ellipses;
-  std::vector<Rect1> rectangles1;
-  std::vector< std::pair<int,int> > shapes_order; // shape_type - shape_index
-*/
-  ShapesGroup shapes;
-  
-//  int scale_factor;
-
-public:
-
-  ShapesAlgoPar();
-
-  ~ShapesAlgoPar()
-  {
-  }
-
-//  void clear_shapes() { shapes.clear(); }
-//  void set_shapes(ShapesGroup& sg) { shapes = sg; }
-//  void scale_shapes(int sf) { shapes.scale(sf); }
-//  void build_mask_shapes(SplineCurve& scurve) { shapes.build_mask(scurve); }
-  
-  void build_masks(ShapesGroup& sg, SplineCurve& scurve, unsigned int level);
-
-//  int add_new_shape(Shape* shape_source);
-  PF::Shape* get_shape(int index) { return shapes.get_shape(index); }
-  int get_shapes_count() { return shapes.size(); }
-
-/*  std::vector<Line>& get_lines() { return lines; }
-  std::vector<Circle1>& get_circles() { return circles; }
-  std::vector<Ellipse>& get_ellipses() { return ellipses; }
-  std::vector<Rect1>& get_rectangles1() { return rectangles1; }
-  std::vector< std::pair<int,int> >& get_shapes_order() { return shapes_order; }
-*/
-  
-  
-  VipsImage* build(std::vector<VipsImage*>& in, int first,
-      VipsImage* imap, VipsImage* omap,
-      unsigned int& level);
-
-};
-
-template < OP_TEMPLATE_DEF >
-class ShapesAlgoProc
-{
-public:
-  void render(VipsRegion** in, int n, int in_first,
-      VipsRegion* imap, VipsRegion* omap,
-      VipsRegion* out, OpParBase* par)
-  {
-    std::cout<<"PF::ShapesAlgoProc::render()"<<std::endl;
-  }
-};
-
-
-
-template < OP_TEMPLATE_DEF_TYPE_SPEC >
-class ShapesAlgoProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
-{
-public:
-  void render(VipsRegion** ireg, int n, int in_first,
-      VipsRegion* imap, VipsRegion* omap,
-      VipsRegion* oreg, OpParBase* par)
-  {
-    std::cout<<"PF::ShapesAlgoProc::render() 2"<<std::endl;
-    
-    Rect *r = &oreg->valid;
-    Rect *ir = &ireg[0]->valid;
-    const int ch = oreg->im->Bands;
-    const int bands = oreg->im->Bands;
-    float* pout;
-
-    for( int y = 0; y < r->height; y++ ) {
-      pout = (float*)VIPS_REGION_ADDR( oreg, r->left, r->top+y );
-
-      for( int x = 0; x < r->width; x++, pout += bands ) {
-        for( int b = 0; b < bands; b++ )
-          pout[b] = 1.f;
-      }
-    }
-
-/*    if (par->get_shapes_algo() == NULL) {
-      std::cout<<"PF::ShapesMask::render() (par->get_shapes_algo() == NULL)"<<std::endl;
-      return;
-    }*/
-    ShapesAlgoPar* opar = dynamic_cast<ShapesAlgoPar*>( par );
-    if (opar == NULL) {
-      std::cout<<"PF::ShapesAlgoProc::render() (opar == NULL)"<<std::endl;
-      return;
-    }
-    
-//    if (opar) {
-//      PF::Shape* shape;
-      
-      for (int i = 0; i < opar->get_shapes_count(); i++) {
-        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i): "<<i<<std::endl;
-        
-        PF::Shape* shape = opar->get_shape(i);
-        if (shape == NULL) {
-          std::cout<<"PF::ShapesAlgoProc::render() (shape == NULL) "<<std::endl;
-          return;
-        }
-        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i):2 "<<i<<std::endl;
-        
-        float *mask = shape->get_mask();
-        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i):21 "<<i<<std::endl;
-        if (mask == NULL) {
-          std::cout<<"PF::ShapesAlgoProc::render() (mask == NULL) "<<std::endl;
-          return;
-        }
-        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i):3 "<<i<<std::endl;
-        
-        VipsRect mask_area, out_area/*, in_area*/;
-        shape->get_mask_rect(&mask_area);
-        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i):4 "<<i<<std::endl;
-
-        vips_rect_intersectrect( r, &mask_area, &out_area );
-        std::cout<<"PF::ShapesAlgoProc::render() opar->get_shape(i):5 "<<i<<std::endl;
-
-//        out_area = *r;
-//        in_area = *ir;
-//        const int offset_left = out_area.left /*+ (in_area.left - in_area_offset.left)*/;
-//        const int offset_top = out_area.top /*+ (in_area.top - in_area_offset.top)*/;
-if (out_area.width > 0 && out_area.height > 0) {
-        std::cout<<"PF::ShapesAlgoProc::render() mask_area.left: "<<mask_area.left<<", mask_area.top: "<<mask_area.top<<std::endl;
-        std::cout<<"PF::ShapesAlgoProc::render() mask_area.width: "<<mask_area.width<<", mask_area.height: "<<mask_area.height<<std::endl;
-        
-        std::cout<<"PF::ShapesAlgoProc::render() r->left: "<<r->left<<", r->top: "<<r->top<<std::endl;
-        std::cout<<"PF::ShapesAlgoProc::render() r->width: "<<r->width<<", r->height: "<<r->height<<std::endl;
-        
-        std::cout<<"PF::ShapesAlgoProc::render() out_area.left: "<<out_area.left<<", out_area.top: "<<out_area.top<<std::endl;
-        std::cout<<"PF::ShapesAlgoProc::render() out_area.width: "<<out_area.width<<", out_area.height: "<<out_area.height<<std::endl;
-}
-        for( int y = 0; y < out_area.height; y++ ) {
-          pout = (float*)VIPS_REGION_ADDR( oreg, out_area.left, out_area.top + y );
- //         std::cout<<"PF::ShapesAlgoProc::render() 3: y = "<<y<<std::endl;
-//          const int y_mask = offset_top + y;
-          float* pmask = mask + ( y + out_area.top-mask_area.top) * mask_area.width;
-//          std::cout<<"PF::ShapesAlgoProc::render() 3: y*mask_area.width = "<<y*mask_area.width<<std::endl;
-          
-          for( int x = 0; x < out_area.width; x++, pout+=ch ) {
-//            std::cout<<"PF::ShapesAlgoProc::render() 4: x = "<<x<<", y: "<<y<<std::endl;
-//            const int x_mask = offset_left + x;
-            const float f = pmask[x + out_area.left - mask_area.left];
-//            std::cout<<"PF::ShapesAlgoProc::render() 4: i = "<<i<<std::endl;
-            if (f > 0.) {
-              for (int c = 0; c < ch; c++)
-                pout[c] = (1.f - f);
-            }
-          }
-        }
-
-      }
-//    }
-  }
-  
-};
-
-
-/*
-template < OP_TEMPLATE_DEF >
-class Shapes: public IntensityProc<T, has_imap>
-{
-public:
-  void render(VipsRegion** in, int n, int in_first,
-      VipsRegion* imap, VipsRegion* omap,
-      VipsRegion* out, ShapesPar* par)
-  {
-  }
-
-};
-
-
-template< OP_TEMPLATE_DEF >
-void Shapes< OP_TEMPLATE_IMP >::
-render(VipsRegion** ir, int n, int in_first,
-    VipsRegion* imap, VipsRegion* omap,
-    VipsRegion* oreg, ShapesPar* par)
-{
-  std::cout<<"PF::Shapes::render()"<<std::endl;
-};
-*/
-
-  ProcessorBase* new_shapes();
 }
 
 #endif 
