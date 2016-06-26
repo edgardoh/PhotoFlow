@@ -77,6 +77,8 @@ namespace PF {
     bool editting;
 
     Line line_add;
+    Polygon polygon_add;
+    BPath bpath_add;
     
     std::vector<int> shapes_selected;
 
@@ -85,6 +87,7 @@ namespace PF {
     void size_sl_changed();
     void angle_sl_changed();
     
+public:
     void pt_screen2image(Point& pt);
     void pt_image2screen(Point& pt);
 
@@ -114,14 +117,22 @@ namespace PF {
     void draw_circle(Circle1* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
     void draw_ellipse(Ellipse* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
     void draw_rectangle(Rect1* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
+    void draw_polygon_segment(Polygon* shape, int start, int end, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int segm_selected, int node_selected);
+    void draw_polygon_falloff_segment(Polygon* shape, int start, int end, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, Point& center, int fall_selected, int node_fall_selected);
+    void draw_polygon(Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
+    void draw_bpath(BPath* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
+    void draw_bezier_curve(BPath* shape, int n, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool selected);
     
     void add_new_shape(PF::ShapesPar* par, int shape_type, Point& initial_pos, Point& source_pos);
+    void adjust_new_bpath_control_point();
     
     void selection_clear() { shapes_selected.clear(); }
     void selection_replace(int n);
     void selection_add(int n);
     void selection_remove(int n);
     bool is_shape_selected(int n);
+    int get_selection_count() { return shapes_selected.size(); }
+    int get_selected(int n) { return shapes_selected[n]; }
     
 
   public:

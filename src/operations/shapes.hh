@@ -295,6 +295,8 @@ public:
     circle = 2,
     ellipse = 3,
     rectangle = 4,
+    polygon = 5,
+    bpath = 6,
   };
   
   enum hitTest
@@ -306,7 +308,9 @@ public:
     hit_falloff_segment = 4,
     hit_node = 5,
     hit_falloff_node = 6,
-    hit_source = 7
+    hit_source = 7,
+    hit_control_point = 8,
+    hit_control_point_end = 9,
   };
   
   static const int hit_test_delta;
@@ -348,6 +352,8 @@ public:
   int get_falloff() const { return falloff; }
   void set_falloff(int f) { falloff = std::max(0, f); }
 
+  virtual int get_points_count() { return get_points().size(); }
+  
   std::vector<Point>& get_points() { return points; }
   const std::vector<Point>& get_points() const { return points; }
 
@@ -364,7 +370,7 @@ public:
   virtual void get_falloff_point_absolute(int n, VipsRect& rc, Point& absolute);
   virtual void get_falloff_point_absolute(int n, Point& absolute);
 
-  virtual Point& point_back() { return points.back(); }
+//  virtual Point& point_back() { return points.back(); }
   
   bool get_has_source() const { return has_source; }
   void set_has_source(bool s) { has_source = s; }
@@ -386,7 +392,8 @@ public:
   virtual void offset_point(int n, int x, int y);
   virtual void offset_point(int n, Point prev, Point curr);
   virtual void offset_falloff_point(int n, int x, int y);
-  virtual void offset_falloff_point(int n, Point prev, Point curr);
+  virtual void offset_falloff_point(int n, Point& prev, Point& curr);
+  virtual void offset_falloff_point(int n, Point& center, Point& prev, Point& curr);
   virtual void offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source);
 
   virtual void build_mask(SplineCurve& scurve) { std::cout<<"PF::Shape::build_mask()"<<std::endl; }
@@ -410,7 +417,7 @@ public:
   }
 
 
-  void add_point(Point pt);
+  virtual void add_point(Point pt);
   void insert_point(Point& pt, int position);
   void remove_point(int n);
   
@@ -430,11 +437,18 @@ public:
   bool point_in_triangle(Point& pt, Point& a, Point& b, Point& c);
   bool point_in_rectangle(Point& pt, Point& a, Point& b, Point& c, Point& d);
   float point_in_ellipse(int x, int y, int h, int v, float rx2, float ry2);
-
+  static void get_intersect_point(Point& A, Point& B, Point& C, Point& pt_out);
+//  bool point_in_rectangle(Point& pt, Point& pt1, Point& pt2, Point& pt3);
+  
   static void get_segment_bounding_rect(Point& pt1, Point& pt2, VipsRect* rc);
   static void get_segment_bounding_rect(Point& pt1, Point& pt2, int expand, VipsRect* rc);
   static void get_expanded_rec_from_line(Point& pt1, Point& pt2, int amount, Point& a, Point& b, Point& c, Point& d);
 
+  void fill_falloff_ellipse_square(float* mask, VipsRect& rc, SplineCurve& scurve, Point& pt1, Point& pt2, Point& pt3, Point& pt4);
+  void fill_falloff_paralelogram(float* mask, VipsRect& rc, SplineCurve& scurve, Point& pt1, Point& pt2, Point& pt3, Point& pt4);
+  void fill_falloff_rectangle(float* mask, VipsRect& rc, SplineCurve& scurve, Point& pt1, Point& pt2, Point& pt3, Point& pt4);
+  void fill_polygon(VipsRect& rc);
+  
   void rotate(VipsRect* rc);
   void rotate(VipsRect* rc, float _angle);
   void rotate(VipsRect* rc, float sin_angle, float cos_angle);
@@ -528,6 +542,7 @@ public:
 
   void set_angle(float s) { }
 
+  void expand(int n) { set_size(get_size()+n); }
   void expand_falloff(int n);
   
   void get_rect(VipsRect* rc);
@@ -757,6 +772,7 @@ public:
   void insert_point(Point& pt, int position) { }
 
 
+  void offset_falloff_point(int n, int x, int y);
   void offset_point(int n, int x, int y);
   void offset_point(int n, Point prev, Point curr) { PF::Shape::offset_point(n, prev, curr); }
   void offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source);
@@ -766,11 +782,241 @@ public:
   int hit_test(Point& pt, int& additional);
   
   void build_mask(SplineCurve& scurve);
-  void build_mask(SplineCurve& scurve, float _angle);
+//  void build_mask(SplineCurve& scurve, float _angle);
   
   void lines_intersects(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt);
   
 };
+
+// -----------------------------------
+// Polygon
+// -----------------------------------
+class Polygon: public Shape
+{
+//  int radius_y; // y radius, the rx is the size property
+  
+public:
+  Polygon():
+      Shape()
+  {
+    set_type(polygon);
+  }
+  Polygon(const Polygon& other): Shape(other)
+  {
+    set_type(polygon);
+  }
+  Polygon(Point& d_init_pos, int d_size, float d_opacity, int d_falloff, bool d_has_source, Point& d_source_point): 
+    Shape(d_init_pos, d_size, d_opacity, d_falloff, d_has_source, d_source_point)
+  {
+    set_type(polygon);
+    
+    add_point(d_init_pos);
+    add_point(d_init_pos);
+  }
+
+/*  friend void swap(Polygon& first, Polygon& second) // nothrow
+  {
+      // enable ADL (not necessary in our case, but good practice)
+      using std::swap;
+
+      // by swapping the members of two classes,
+      // the two classes are effectively swapped
+      const Shape& pf = static_cast<const Shape&>(first);
+      const Shape& ps = static_cast<const Shape&>(second);
+      swap(pf, ps);
+      
+//      swap(first.radius_y, second.radius_y);
+  }
+*/  
+  void set_angle(float s) { }
+
+/*  void expand(int n) { set_size(get_size()+n); }
+  void expand_falloff(int n);
+  
+  void get_rect(VipsRect* rc);
+  void get_falloff_rect(VipsRect* rc);
+  */
+  void offset(int x, int y) { PF::Shape::offset(x, y); }
+  void offset(Point& pt) { PF::Shape::offset(pt); }
+  void offset(Point prev, Point curr) { PF::Shape::offset(prev, curr); }
+  void offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source);
+
+  int hit_test(Point& pt, int& additional);
+  void build_mask(SplineCurve& scurve);
+  
+};
+
+/*
+inline
+bool operator ==(const Polygon& l, const Polygon& r)
+{
+  assert(typeid(l) == typeid(r));
+
+  const Shape& pr = static_cast<const Shape&>(r);
+  const Shape& pl = static_cast<const Shape&>(l);
+    
+  if( pl != pr ) return false;
+//  if( l.get_radius_y() != r.get_radius_y() ) return false;
+  return true;      
+}
+
+inline
+bool operator !=(const Polygon& l, const Polygon& r)
+{
+  return( !(l==r) );
+}
+
+inline std::istream& operator >>( std::istream& str, Polygon& shape )
+{
+  assert(typeid(l) == typeid(r));
+
+  Shape& pshape = static_cast<Shape&>(shape);
+  int radius_y;
+  
+  str>>pshape>>radius_y;
+//  shape.set_radius_y(radius_y);
+  return str;
+}
+
+inline std::ostream& operator <<( std::ostream& str, const Polygon& shape )
+{
+  assert(typeid(l) == typeid(r));
+
+  const Shape& pshape = static_cast<const Shape&>(shape);
+    
+  str<<pshape<<1<<" ";
+  return str;
+}
+
+template<> inline
+void set_gobject_property< Polygon >(gpointer object, const std::string name,
+    const Polygon& value)
+{
+}
+
+template<> inline
+void set_gobject_property< std::vector<Polygon> >(gpointer object, const std::string name,
+    const std::vector<Polygon>& value)
+{
+}
+*/
+
+// -----------------------------------
+// BPath
+// -----------------------------------
+class BPath: public Shape
+{
+  int radius_y; // y radius, the rx is the size property
+  
+public:
+  BPath():
+      Shape()
+  {
+    set_type(bpath);
+  }
+  BPath(const BPath& other): Shape(other), radius_y(other.radius_y)
+  {
+    set_type(bpath);
+  }
+  BPath(Point& d_init_pos, int d_size, float d_opacity, int d_falloff, bool d_has_source, Point& d_source_point): 
+    Shape(d_init_pos, d_size, d_opacity, d_falloff, d_has_source, d_source_point)
+  {
+    set_type(bpath);
+    
+    add_point(d_init_pos);
+    add_point(d_init_pos);
+  }
+
+  friend void swap(BPath& first, BPath& second) // nothrow
+  {
+      // enable ADL (not necessary in our case, but good practice)
+      using std::swap;
+
+      // by swapping the members of two classes,
+      // the two classes are effectively swapped
+      const Shape& pf = static_cast<const Shape&>(first);
+      const Shape& ps = static_cast<const Shape&>(second);
+      swap(pf, ps);
+      
+      swap(first.radius_y, second.radius_y);
+  }
+  
+  void set_angle(float s) { }
+  bool lock_control_points() { return true; }
+  
+  int get_points_count() { return get_points().size() / 3; }
+  
+  void add_point(Point pt);
+  
+  PF::Point& get_point(int n) { return PF::Shape::get_point(n*3); }
+  PF::Point& get_control_point(int n);
+  PF::Point& get_control_point_end(int n);
+  
+  PF::Point get_control_point_absolute(int n);
+  PF::Point get_control_point_end_absolute(int n);
+  
+  void offset(int x, int y) { PF::Shape::offset(x, y); }
+  void offset(Point& pt) { PF::Shape::offset(pt); }
+  void offset(Point prev, Point curr) { PF::Shape::offset(prev, curr); }
+  void offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source);
+  
+  int hit_test(Point& pt, int& additional);
+  
+  void build_mask(SplineCurve& scurve);
+};
+
+inline
+bool operator ==(const BPath& l, const BPath& r)
+{
+  assert(typeid(l) == typeid(r));
+
+  const Shape& pr = static_cast<const Shape&>(r);
+  const Shape& pl = static_cast<const Shape&>(l);
+    
+  if( pl != pr ) return false;
+//  if( l.get_radius_y() != r.get_radius_y() ) return false;
+  return true;      
+}
+
+inline
+bool operator !=(const BPath& l, const BPath& r)
+{
+  return( !(l==r) );
+}
+
+inline std::istream& operator >>( std::istream& str, BPath& shape )
+{
+  assert(typeid(l) == typeid(r));
+
+  Shape& pshape = static_cast<Shape&>(shape);
+  int radius_y;
+  
+  str>>pshape>>radius_y;
+//  shape.set_radius_y(radius_y);
+  return str;
+}
+
+inline std::ostream& operator <<( std::ostream& str, const BPath& shape )
+{
+  assert(typeid(l) == typeid(r));
+
+  const Shape& pshape = static_cast<const Shape&>(shape);
+    
+  str<<pshape<<1<<" ";
+  return str;
+}
+
+template<> inline
+void set_gobject_property< BPath >(gpointer object, const std::string name,
+    const BPath& value)
+{
+}
+
+template<> inline
+void set_gobject_property< std::vector<BPath> >(gpointer object, const std::string name,
+    const std::vector<BPath>& value)
+{
+}
 
 // -----------------------------------
 // ShapesGroup
@@ -782,6 +1028,8 @@ class ShapesGroup
   std::vector<Circle1> circles;
   std::vector<Ellipse> ellipses;
   std::vector<Rect1> rectangles1;
+  std::vector<Polygon> polygons;
+  std::vector<BPath> bpaths;
   std::vector< std::pair<int,int> > shapes_order; // shape_type - shape_index
 
   ShapeColor current_color;
@@ -791,7 +1039,7 @@ public:
   {
   }
   ShapesGroup(const ShapesGroup& other): lines(other.lines), circles(other.circles), ellipses(other.ellipses), 
-      rectangles1(other.rectangles1), shapes_order(other.shapes_order), current_color(other.current_color)
+      rectangles1(other.rectangles1), polygons(other.polygons), bpaths(other.bpaths), shapes_order(other.shapes_order), current_color(other.current_color)
   {
   }
   virtual ~ShapesGroup() { }
@@ -808,6 +1056,8 @@ public:
       first.circles.swap(second.circles);
       first.ellipses.swap(second.ellipses);
       first.rectangles1.swap(second.rectangles1);
+      first.polygons.swap(second.polygons);
+      first.bpaths.swap(second.bpaths);
       first.shapes_order.swap(second.shapes_order);
       first.current_color.swap(second.current_color);
   }
@@ -826,6 +1076,12 @@ public:
 
   std::vector<Ellipse>& get_ellipses() { return ellipses; }
   const std::vector<Ellipse>& get_ellipses() const { return ellipses; }
+
+  std::vector<Polygon>& get_polygons() { return polygons; }
+  const std::vector<Polygon>& get_polygons() const { return polygons; }
+
+  std::vector<BPath>& get_bpaths() { return bpaths; }
+  const std::vector<BPath>& get_bpaths() const { return bpaths; }
 
   std::vector<Rect1>& get_rectangles() { return rectangles1; }
   const std::vector<Rect1>& get_rectangles() const { return rectangles1; }
@@ -860,6 +1116,8 @@ bool operator ==(const ShapesGroup& l, const ShapesGroup& r)
   if( l.get_circles() != r.get_circles() ) return false;
   if( l.get_ellipses() != r.get_ellipses() ) return false;
   if( l.get_rectangles() != r.get_rectangles() ) return false;
+  if( l.get_polygons() != r.get_polygons() ) return false;
+  if( l.get_bpaths() != r.get_bpaths() ) return false;
   if( l.get_shapes_order() != r.get_shapes_order() ) return false;
   if( l.get_current_color() != r.get_current_color() ) return false;
   return true;
@@ -874,14 +1132,14 @@ bool operator !=(const ShapesGroup& l, const ShapesGroup& r)
 
 inline std::istream& operator >>( std::istream& str, ShapesGroup& shape )
 {
-  str>>shape.get_lines()>>shape.get_circles()>>shape.get_ellipses()>>shape.get_rectangles()>>shape.get_shapes_order()>>shape.get_current_color();
+  str>>shape.get_lines()>>shape.get_circles()>>shape.get_ellipses()>>shape.get_rectangles()>>shape.get_polygons()>>shape.get_bpaths()>>shape.get_shapes_order()>>shape.get_current_color();
 
   return str;
 }
 
 inline std::ostream& operator <<( std::ostream& str, const ShapesGroup& shape )
 {
-  str<<shape.get_lines()<<shape.get_circles()<<shape.get_ellipses()<<shape.get_rectangles()<<shape.get_shapes_order()<<shape.get_current_color();
+  str<<shape.get_lines()<<shape.get_circles()<<shape.get_ellipses()<<shape.get_rectangles()<<shape.get_polygons()<<shape.get_bpaths()<<shape.get_shapes_order()<<shape.get_current_color();
   return str;
 }
 

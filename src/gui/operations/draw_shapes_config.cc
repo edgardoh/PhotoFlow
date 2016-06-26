@@ -61,10 +61,36 @@ bgd_transparent_checkbox( this, "bgd_transparent", _("transparent"), false )
 
 }
 
+#define CALLBACK_BEGIN() \
+/* Retrieve the layer associated to the filter */ \
+PF::Layer* layer = get_layer(); \
+if( !layer ) return; \
+\
+/* Retrieve the image the layer belongs to */ \
+PF::Image* image = layer->get_image(); \
+if( !image ) return; \
+\
+/* Retrieve the pipeline #0 (full resolution preview) */ \
+PF::Pipeline* pipeline = image->get_pipeline( 0 ); \
+if( !pipeline ) return; \
+\
+/* Find the pipeline node associated to the current layer */ \
+PF::PipelineNode* node = pipeline->get_node( layer->get_id() ); \
+if( !node ) return; \
+if( !node->image ) return; \
+\
+PF::DrawShapesPar* par = dynamic_cast<PF::DrawShapesPar*>(get_par()); \
+if( !par ) return; \
+
+
 void PF::DrawShapesConfigGUI::on_fgd_color_changed()
 {
-  PF::DrawShapesPar* par = dynamic_cast<PF::DrawShapesPar*>( get_par() );
-  if( !par ) return;
+  CALLBACK_BEGIN();
+  
+  bool modified = false;
+
+//  PF::DrawShapesPar* par = dynamic_cast<PF::DrawShapesPar*>( get_par() );
+//  if( !par ) return;
   
 #ifdef GTKMM_2
   float r = fgd_color_button.get_color().get_red()/65535;
@@ -76,6 +102,19 @@ void PF::DrawShapesConfigGUI::on_fgd_color_changed()
 #ifdef GTKMM_3
   par->set_fgd_color(fgd_color_button.get_rgba().get_red(), fgd_color_button.get_rgba().get_green(), fgd_color_button.get_rgba().get_blue());
 #endif
+  
+  ShapeColor& color = par->get_shapes_group().get_current_color();
+  for (int i = 0; i < get_selection_count(); i++)
+  {
+//    color.set(par->get_fgd_color().get().r, par->get_fgd_color().get().g, par->get_fgd_color().get().b);
+    par->get_shape(get_selected(i))->set_color(color);
+    modified = true;
+  }
+  
+  if (modified) {
+    par->shapes_modified();
+    image->update();
+  }
 }
 
 

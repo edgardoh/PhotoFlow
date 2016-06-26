@@ -173,7 +173,7 @@ void PF::Shape::offset(Point prev, Point curr)
 
 void PF::Shape::offset_point(int n, int x, int y)
 {
-  points[n].offset(x, y);
+  get_point(n).offset(x, y);
 }
 
 void PF::Shape::offset_point(int n, Point prev, Point curr)
@@ -183,12 +183,37 @@ void PF::Shape::offset_point(int n, Point prev, Point curr)
 
 void PF::Shape::offset_falloff_point(int n, int x, int y)
 {
-  falloff_points[n].offset_pos(x, y);
+//  falloff_points[n].offset_pos(x, y);
+  falloff_points[n].offset(x, y);
 }
 
-void PF::Shape::offset_falloff_point(int n, Point prev, Point curr)
+void PF::Shape::offset_falloff_point(int n, Point& prev, Point& curr)
 {
-  offset_falloff_point(n, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+  Point center;
+  get_center(center);
+  offset_falloff_point(n, center, prev, curr);
+}
+
+void PF::Shape::offset_falloff_point(int n, Point& center, Point& prev, Point& curr)
+{
+  if ( get_point(n).get_x() < center.get_x() ) {
+    if ( get_point(n).get_y() < center.get_y() ) {
+      offset_falloff_point(n, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+    }
+    else
+    {
+      offset_falloff_point(n, curr.get_x()-prev.get_x(), prev.get_y()-curr.get_y());
+    }
+  }
+  else {
+    if ( get_point(n).get_y() < center.get_y() ) {
+      offset_falloff_point(n, prev.get_x()-curr.get_x(), curr.get_y()-prev.get_y());
+    }
+    else
+    {
+      offset_falloff_point(n, prev.get_x()-curr.get_x(), prev.get_y()-curr.get_y());
+    }
+  }
 }
 
 void PF::Shape::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source)
@@ -380,6 +405,32 @@ float PF::Shape::point_in_ellipse(int x, int y, int h, int v, float rx2, float r
   return ( ((float)((x-h)*(x-h)))/rx2 ) + ( ((float)((y-v)*(y-v)))/ry2 );
 }
 
+// returns the intersection point from segment (A, B) and point C
+void PF::Shape::get_intersect_point(Point& A, Point& B, Point& C, Point& pt_out)
+{
+/*    int x1=A.get_x(), y1=A.get_y(), x2=B.get_x(), y2=B.get_y(), x3=C.get_x(), y3=C.get_y();
+    int px = x2-x1, py = y2-y1, dAB = px*px + py*py;
+    int u = ((x3 - x1) * px + (y3 - y1) * py) / dAB;
+    pt_out.set( x1 + u * px, y1 + u * py);*/
+  
+/*  int k = ((B.get_y()-A.get_y()) * (C.get_x()-A.get_x()) - (B.get_x()-A.get_x()) * (C.get_y()-A.get_y())) / 
+      ( (B.get_y()-A.get_y())*(B.get_y()-A.get_y()) + (B.get_x()-A.get_x())*(B.get_x()-A.get_x()) );
+  pt_out.set( C.get_x() - k * (B.get_y()-A.get_y()), 
+  C.get_y() + k * (B.get_x()-A.get_x()) );*/
+  
+  int x1=A.get_x(), y1=A.get_y(), x2=B.get_x(), y2=B.get_y(), x3=C.get_x(), y3=C.get_y();
+  double dx = x2 - x1;
+  double dy = y2 - y1;
+  double mag = sqrt(dx*dx + dy*dy);
+  dx /= mag;
+  dy /= mag;
+
+  // translate the point and get the dot product
+  double lambda = (dx * (x3 - x1)) + (dy * (y3 - y1));
+  pt_out.set( (dx * lambda) + x1,
+   (dy * lambda) + y1);
+}
+
 void PF::Shape::get_segment_bounding_rect(Point& pt1, Point& pt2, VipsRect* rc)
 {
   rc->left = std::min(pt1.get_x(), pt2.get_x());
@@ -405,12 +456,12 @@ void PF::Shape::get_expanded_rec_from_line(Point& pt1, Point& pt2, int amount, P
   const float dist = sqrtf(dx*dx + dy*dy);
   dx /= dist;
   dy /= dist;
-  const float amount_x = amount*dx;
-  const float amount_y = amount*dy;
-  a.set( pt1.get_x() + amount_y, pt1.get_y() - amount_x);
-  b.set( pt1.get_x() - amount_y, pt1.get_y() + amount_x);
-  d.set( pt2.get_x() + amount_y, pt2.get_y() - amount_x);
-  c.set( pt2.get_x() - amount_y, pt2.get_y() + amount_x);
+  const float amount_x = ((float)amount)*dx;
+  const float amount_y = ((float)amount)*dy;
+  a.set( pt1.get_x() + amount_y + 1, pt1.get_y() - amount_x + 1);
+  b.set( pt1.get_x() - amount_y + 1, pt1.get_y() + amount_x + 1);
+  d.set( pt2.get_x() + amount_y + 1, pt2.get_y() - amount_x + 1);
+  c.set( pt2.get_x() - amount_y + 1, pt2.get_y() + amount_x + 1);
 
 }
 
@@ -1178,6 +1229,11 @@ void PF::Ellipse::build_mask(SplineCurve& scurve, float angle_1)
 // Rect1
 // -----------------------------------
 
+void PF::Rect1::offset_falloff_point(int n, int x, int y)
+{
+  get_falloff_point(n).offset_pos(x, y);
+}
+
 void PF::Rect1::offset_point(int n, int x, int y)
 {
   Point pt = get_point(n);
@@ -1584,6 +1640,470 @@ void PF::Rect1::build_mask(SplineCurve& scurve)
 }
 
 // -----------------------------------
+// Polygon
+// -----------------------------------
+
+void PF::Polygon::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source)
+{
+  int x, y;
+  Point center;
+  
+  switch (hit_t)
+  {
+  case PF::Shape::hit_segment:
+    if (additional == get_points_count()-1) {
+      offset_point(additional, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+      offset_point(0, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+    }
+    else {
+      PF::Shape::offset(hit_t, prev, curr, additional, lock_source);
+    }
+    break;
+  case PF::Shape::hit_falloff_segment:
+  default:
+    PF::Shape::offset(hit_t, prev, curr, additional, lock_source);
+    break;
+  }
+
+}
+
+int PF::Polygon::hit_test(Point& pt, int& additional)
+{
+  int hit_t = hit_none;
+  
+  // check the nodes
+  int i = 0;
+  while ( i < get_points().size() && hit_t == hit_none ) {
+    hit_t = hit_test_node(i, pt, additional);
+    i++;
+  }
+    
+  Point pt1;
+  Point center;
+  
+  get_center(center);
+  
+  // check falloff nodes
+  i = 0;
+  while ( i < get_points().size() && hit_t == hit_none ) {
+    get_falloff_point_absolute(i, center, pt1);
+    if ( hit_test_node(pt, pt1) ) {
+      hit_t = hit_falloff_node;
+      additional = i;
+    }
+    i++;
+  }
+    
+  // check shape & falloff
+  if ( hit_t == hit_none ) {
+    const int delta2 = (hit_test_delta)*(hit_test_delta);
+//    const int delta2 = (get_size()+hit_test_delta)*(get_size()+hit_test_delta);
+//    const int fall2 = (get_size()+get_falloff()+hit_test_delta)*(get_size()+get_falloff()+hit_test_delta);
+    Point pt1, pt2;
+    int i = 0;
+    while ( i < get_points().size()-1 && hit_t == hit_none ) {
+      pt1 = get_point(i);
+      pt2 = get_point(i+1);
+      const float dist2 = pt.distance2segment2(pt1, pt2);
+      
+      if (dist2 <= delta2) {
+        hit_t = hit_segment;
+        additional = i;
+      }
+/*      else if (dist2 <= fall2) {
+        hit_t = hit_falloff_segment;
+        additional = i;
+      }*/
+      i++;
+    }    
+    // check last segment
+    if ( hit_t == hit_none ) {
+      pt1 = get_point(get_points().size()-1);
+      pt2 = get_point(0);
+      const float dist2 = pt.distance2segment2(pt1, pt2);
+      
+      if (dist2 <= delta2) {
+        hit_t = hit_segment;
+        additional = get_points().size()-1;
+      }
+/*      else if (dist2 <= fall2) {
+        hit_t = hit_falloff_segment;
+        additional = get_points().size()-1;
+      }*/
+    }
+  }
+  // check the source
+  if ( hit_t == hit_none && get_has_source()) {
+    Polygon shape = *this;
+    shape.set_has_source(false);
+    shape.offset(get_source_point());
+    hit_t = shape.hit_test(pt, additional);
+    if ( hit_t != hit_none) hit_t = hit_source;
+  }
+
+  return hit_t;
+}
+
+//#define MAX_POLY_CORNERS 100
+
+void PF::Shape::fill_polygon(VipsRect& rc)
+{
+  int  nodes, /*nodeX[MAX_POLY_CORNERS],*/ pixelX, pixelY, i, j, swap ;
+  int polyCorners = get_points_count();
+  int* nodeX = (int*)malloc(polyCorners * sizeof(int));
+  
+/*  int IMAGE_TOP = rc_s.top-rc.top;
+  int IMAGE_LEFT = rc_s.left-rc.left;
+  int IMAGE_BOT = IMAGE_TOP + rc_s.height;
+  int IMAGE_RIGHT = IMAGE_LEFT + rc_s.width;
+  */
+  int IMAGE_TOP = rc.top;
+  int IMAGE_LEFT = rc.left;
+  int IMAGE_BOT = IMAGE_TOP + rc.height;
+  int IMAGE_RIGHT = IMAGE_LEFT + rc.width;
+  
+  
+//  float* polyY = (float*)malloc(polyCorners * sizeof(float));
+  
+  //  Loop through the rows of the image.
+  for (pixelY=IMAGE_TOP; pixelY<IMAGE_BOT; pixelY++) {
+
+    //  Build a list of nodes.
+    nodes=0; j=polyCorners-1;
+    for (i=0; i<polyCorners; i++) {
+      if ( (get_point(i).get_y()<(double) pixelY && get_point(j).get_y()>=(double) pixelY)
+      ||  (get_point(j).get_y()<(double) pixelY && get_point(i).get_y()>=(double) pixelY) ) {
+        nodeX[nodes++]=(int) ( get_point(i).get_x() + ((float)(pixelY-get_point(i).get_y()) / (float)(get_point(j).get_y()-get_point(i).get_y())) 
+        * (float)(get_point(j).get_x()-get_point(i).get_x()) ); 
+      }
+      j=i; 
+    }
+
+    //  Sort the nodes, via a simple “Bubble” sort.
+    i=0;
+    while (i<nodes-1) {
+      if (nodeX[i]>nodeX[i+1]) {
+        swap=nodeX[i]; nodeX[i]=nodeX[i+1]; nodeX[i+1]=swap; if (i) i--; 
+      }
+      else {
+        i++; 
+      }
+    }
+
+    //  Fill the pixels between node pairs.
+    for (i=0; i<nodes; i+=2) {
+      if   (nodeX[i  ]>=IMAGE_RIGHT) break;
+      if   (nodeX[i+1]> IMAGE_LEFT ) {
+        if (nodeX[i  ]< IMAGE_LEFT ) nodeX[i  ]=IMAGE_LEFT ;
+        if (nodeX[i+1]> IMAGE_RIGHT) nodeX[i+1]=IMAGE_RIGHT;
+        for (pixelX=nodeX[i]; pixelX<nodeX[i+1]; pixelX++) {
+//          fillPixel(pixelX,pixelY);
+          mask[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = 1.f;
+        }
+      }
+    }
+  }
+
+  if (nodeX) free(nodeX);
+}
+/*
+bool PF::Shape::point_in_rectangle(Point& pt, Point& pt1, Point& pt2, Point& pt3)
+{
+  const float bax = pt2.get_x() - pt1.get_x();
+  const float bay = pt2.get_y() - pt1.get_y();
+  const float dax = pt3.get_x() - pt1.get_x();
+  const float day = pt3.get_y() - pt1.get_y();
+
+  if ( (float)(pt.get_x() - pt1.get_x()) * bax + (float)(pt.get_y() - pt1.get_y()) * bay < 0.0f) return false;
+  if ( (float)(pt.get_x() - pt2.get_x()) * bax + (float)(pt.get_y() - pt2.get_y()) * bay > 0.0f) return false;
+  if ( (float)(pt.get_x() - pt1.get_x()) * dax + (float)(pt.get_y() - pt1.get_y()) * day < 0.0f) return false;
+  if ( (float)(pt.get_x() - pt3.get_x()) * dax + (float)(pt.get_y() - pt3.get_y()) * day > 0.0f) return false;
+
+  return true;
+}
+*/
+void PF::Shape::fill_falloff_rectangle(float* mask, VipsRect& rc, SplineCurve& scurve, Point& pt1, Point& pt2, Point& pt3, Point& pt4)
+{
+  const int x_from = std::min(pt1.get_x(), pt4.get_x());
+  const int y_from = std::min(pt1.get_y(), pt2.get_y());
+  const int x_to = std::max(pt2.get_x(), pt3.get_x());
+  const int y_to = std::max(pt3.get_y(), pt4.get_y());
+  
+  for(int y = y_from; y < y_to; y++) { 
+    float* pmask = mask + ((y - rc.top) * rc.width);
+    for(int x = x_from; x < x_to; x++) {
+      Point pt(x, y);
+      if ( point_in_rectangle(pt, pt1, pt2, pt3, pt4) ) {
+        Point pt_43;
+        Point pt_12( x, pt2.get_y() );
+        
+        get_intersect_point(pt4, pt3, pt, pt_12);
+        get_intersect_point(pt1, pt2, pt_12, pt_43);
+        
+        const float dist_t2 = pt_43.distance2(pt_12); 
+        const float dist2 = pt.distance2(pt_12);
+        const float f = (dist_t2-dist2) / dist_t2; 
+        const float f2 = f * f * get_opacity(); 
+        pmask[x-rc.left] = scurve.get_value(f2);
+      }
+    } 
+  } 
+}
+
+void PF::Shape::fill_falloff_ellipse_square(float* mask, VipsRect& rc, SplineCurve& scurve, 
+    Point& pt1, Point& pt2, Point& pt3, Point& pt4)
+{
+  const int x_from = std::min(pt1.get_x(), std::min(pt2.get_x(), std::min(pt3.get_x(), pt4.get_x())));
+  const int y_from = std::min(pt1.get_y(), std::min(pt2.get_y(), std::min(pt3.get_y(), pt4.get_y())));
+  const int x_to = std::max(pt1.get_x(), std::max(pt2.get_x(), std::max(pt3.get_x(), pt4.get_x())));
+  const int y_to = std::max(pt1.get_y(), std::max(pt2.get_y(), std::max(pt3.get_y(), pt4.get_y())));
+//  const int v = y_to - y_from;
+//  const int h = x_to - x_from;
+  const int h = (pt1.get_y()-pt2.get_y());
+  const int w = (pt1.get_x()-pt4.get_x());
+  
+//  const int rx2 = (x_to-x_from)*(x_to-x_from); 
+//  const int ry2 = (y_to-y_from)*(y_to-y_from); 
+  const int rx2 = w*w; 
+  const int ry2 = h*h; 
+  for(int y = y_from; y < y_to; y++) { 
+    float* pmask = mask + ((y - rc.top) * rc.width); 
+    for(int x = x_from; x < x_to; x++) {
+      Point pt(x, y);
+      if ( point_in_rectangle(pt, pt1, pt2, pt3, pt4) ) {
+      const float f = point_in_ellipse(x, y, pt1.get_x(), pt1.get_y(), rx2, ry2); 
+        if (f>0.f && f <= 1.f) { 
+          const float f2 = (1.f-f) * (1.f-f) * get_opacity(); 
+          pmask[x-rc.left] = scurve.get_value(f2); 
+        }
+      }
+    } 
+  } 
+
+}
+
+void PF::Shape::fill_falloff_paralelogram(float* mask, VipsRect& rc, SplineCurve& scurve, Point& pt1, Point& pt2, Point& pt3, Point& pt4)
+{
+  Point corner;
+  Point ptr1, ptr2, ptr3/*, ptr4*/;
+  
+//  corner.set(pt3.get_x(), pt2.get_y());
+//  fill_falloff_triangle(mask, rc, scurve, pt3, corner, pt2);
+  
+/*  ptr1.set(pt4.get_x(), pt1.get_y());
+  ptr2.set(pt3.get_x(), pt2.get_y());
+  ptr3.set(pt3.get_x(), pt3.get_y());
+  ptr4.set(pt4.get_x(), pt4.get_y());
+  */
+//  get_intersect_point(pt1, pt2, pt4, ptr1);
+//  get_intersect_point(pt1, pt2, pt3, ptr2);
+//  fill_falloff_rectangle(mask, rc, scurve, ptr1, ptr2, pt3, pt4);
+
+//  get_intersect_point(pt4, pt3, pt2, ptr3);
+//  fill_falloff_ellipse_square(mask, rc, scurve, pt3, ptr2, pt2, ptr3);
+  
+  fill_falloff_rectangle(mask, rc, scurve, pt1, pt2, pt3, pt4);
+}
+
+void PF::Polygon::build_mask(SplineCurve& scurve)
+{
+  if (mask != NULL) {
+    free(mask);
+    mask = NULL;
+  }
+  
+  // get bounding rect
+  VipsRect rc;
+  get_mask_rect(&rc);
+  
+  // nothing to return
+  if (rc.width <= 1 || rc.height <= 1) return;
+  
+  // alloc mask
+  mask = (float*)malloc(rc.width * rc.height * sizeof(float));
+  memset(mask, 0, rc.width * rc.height * sizeof(float));
+
+//  rc.top = rc.left = 0;
+  
+  VipsRect rc_s;
+  get_rect(&rc_s);
+  
+  fill_polygon(rc);
+  
+  Point pt1, pt2, pt3, pt4;
+  Point center;
+  get_center(center);
+  
+  for (int i = 0; i < get_points_count()-2; i++) {
+    get_falloff_point_absolute(i, center, pt1);
+    get_falloff_point_absolute(i+1, center, pt2);
+    pt3 = get_point(i+1);
+    pt4 = get_point(i);
+    
+    fill_falloff_paralelogram(mask, rc, scurve, pt1, pt2, pt3, pt4);
+  }
+  
+}
+
+// -----------------------------------
+// BPath
+// -----------------------------------
+
+void PF::BPath::add_point(Point pt) 
+{ 
+  Point pt1(50, 50);
+  Point pt2(-50, -50);
+  const int count = get_points_count();
+  if (count > 1) pt2.set(-get_control_point(0).get_x(), -get_control_point(0).get_y());
+  PF::Shape::add_point(pt); // anchor
+  PF::Shape::add_point(pt1); // control point
+  PF::Shape::add_point(pt2); // control point end
+}
+
+PF::Point& PF::BPath::get_control_point(int n) 
+{
+  return PF::Shape::get_point((n*3) + 1); 
+}
+
+PF::Point& PF::BPath::get_control_point_end(int n) 
+{
+  return PF::Shape::get_point((n*3) + 2);
+}
+
+PF::Point PF::BPath::get_control_point_absolute(int n)
+{
+  Point pt = get_point(n);
+  pt.offset(get_control_point(n));
+  return pt;
+}
+
+PF::Point PF::BPath::get_control_point_end_absolute(int n)
+{
+  Point pt;
+  if (n == get_points_count()-1)
+    pt = get_point(0);
+  else
+    pt = get_point(n+1);
+  pt.offset(get_control_point_end(n));
+  return pt;
+}
+
+void PF::BPath::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source)
+{
+  switch (hit_t)
+  {
+  case PF::Shape::hit_segment:
+    if (additional == get_points_count()-1) {
+      offset_point(additional, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+      offset_point(0, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+    }
+    else {
+      offset_point(additional, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+      offset_point(additional+1, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+    }
+    break;
+  case PF::Shape::hit_control_point:
+    get_control_point(additional).offset(curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+    if (lock_control_points()) {
+      if (additional == 0) 
+//        get_control_point_end(get_points_count()-1).offset(-(curr.get_x()-prev.get_x()), -(curr.get_y()-prev.get_y()));
+        get_control_point_end(get_points_count()-1).set(-get_control_point(additional).get_x(), -get_control_point(additional).get_y());
+      else
+        get_control_point_end(additional-1).set(-get_control_point(additional).get_x(), -get_control_point(additional).get_y());
+    }
+    break;
+  case PF::Shape::hit_control_point_end:
+    get_control_point_end(additional).offset(curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+    if (lock_control_points()) {
+      if (additional == get_points_count()-1) 
+        get_control_point(0).set(-get_control_point_end(additional).get_x(), -get_control_point_end(additional).get_y());
+      else
+        get_control_point(additional+1).set(-get_control_point_end(additional).get_x(), -get_control_point_end(additional).get_y());
+    }
+    break;
+  default:
+    PF::Shape::offset(hit_t, prev, curr, additional, lock_source);
+    break;
+  }
+}
+
+int PF::BPath::hit_test(Point& pt, int& additional)
+{
+  VipsRect rc;  
+  get_mask_rect(&rc);
+  
+  // inside the falloff rect
+//  if ( hit_test_rect(pt, &rc) ) {
+  Point pt1, pt2;
+  
+  // check control points
+  for (int i = 0; i < get_points_count(); i++) {
+    pt1 = get_control_point_absolute(i);
+    if ( hit_test_node(pt, pt1) ) {
+      additional = i;
+      return hit_control_point;
+    }
+    pt1 = get_control_point_end_absolute(i);
+    if ( hit_test_node(pt, pt1) ) {
+      additional = i;
+      return hit_control_point_end;
+    }
+  }
+  // check nodes
+  for (int i = 0; i < get_points_count(); i++) {
+    pt1 = get_point(i);
+    if ( hit_test_node(pt, pt1) ) {
+      additional = i;
+      return hit_node;
+    }
+  }
+  // check segments
+  const int delta2 = (hit_test_delta*hit_test_delta);
+  
+  for (int i = 0; i < get_points_count()-1; i++) {
+    pt1 = get_point(i);
+    pt2 = get_point(i+1);
+    const float dist2 = pt.distance2segment2(pt1, pt2);
+    
+    if (dist2 <= delta2) {
+      additional = i;
+      return hit_segment;
+    }
+  }
+  // check last segment
+  if (get_points_count() > 0) {
+    pt1 = pt2;
+    pt2 = get_point(0);
+    const float dist2 = pt.distance2segment2(pt1, pt2);
+
+    if (dist2 <= delta2) {
+      additional = get_points_count()-1;
+      return hit_segment;
+    }
+  }
+
+//  }
+  
+  // check the source
+  if ( get_has_source() ) {
+    BPath shape = *this;
+    shape.set_has_source(false);
+    shape.offset(get_source_point());
+    int hit_t = shape.hit_test(pt, additional);
+    if ( hit_t != hit_none) hit_t = hit_source;
+    
+    return hit_t;
+  }
+
+  return hit_none;
+}
+
+void PF::BPath::build_mask(SplineCurve& scurve)
+{
+  
+}
+
+// -----------------------------------
 // ShapesGroup
 // -----------------------------------
 
@@ -1606,6 +2126,13 @@ PF::Shape* PF::ShapesGroup::get_shape(int index)
 
   else if ( s_type == PF::Shape::rectangle )
     shape = &(get_rectangles().data()[s_index]);
+  
+  else if ( s_type == PF::Shape::polygon )
+    shape = &(get_polygons().data()[s_index]);
+  
+  else if ( s_type == PF::Shape::bpath )
+    shape = &(get_bpaths().data()[s_index]);
+  
   else
     std::cout<<"PF::ShapesGroup::get_shape(): invalid shape index: "<<index<<std::endl;
 
@@ -1657,6 +2184,28 @@ int PF::ShapesGroup::add(Shape* shape_source)
     index = rectangles1.size()-1;
   }
     break;
+  case PF::Shape::polygon:
+  {
+    std::cout<<"PF::ShapesGroup::add(): adding polygon "<<std::endl;
+    
+    PF::Polygon shape;
+    const PF::Polygon* ss = static_cast<const PF::Polygon*>(shape_source);
+    shape = *ss;
+    polygons.push_back(shape);
+    index = polygons.size()-1;
+  }
+    break;
+  case PF::Shape::bpath:
+  {
+    std::cout<<"PF::ShapesGroup::add(): adding bpath "<<std::endl;
+    
+    PF::BPath shape;
+    const PF::BPath* ss = static_cast<const PF::BPath*>(shape_source);
+    shape = *ss;
+    bpaths.push_back(shape);
+    index = bpaths.size()-1;
+  }
+    break;
   default:
     std::cout<<"PF::ShapesGroup::add(): invalid shape type: "<<shape_source->get_type()<<std::endl;
     break;
@@ -1692,6 +2241,12 @@ void PF::ShapesGroup::remove(int n)
   case PF::Shape::rectangle:
     rectangles1.erase(rectangles1.begin()+nindex);
     break;
+  case PF::Shape::bpath:
+    bpaths.erase(bpaths.begin()+nindex);
+    break;
+  case PF::Shape::polygon:
+    polygons.erase(polygons.begin()+nindex);
+    break;
   default:
     std::cout<<"PF::ShapesGroup::remove(): error removing shape: index: "<<n<<std::endl;
     break;
@@ -1712,6 +2267,8 @@ void PF::ShapesGroup::clear()
   circles.clear();
   ellipses.clear();
   rectangles1.clear();
+  polygons.clear();
+  bpaths.clear();
   shapes_order.clear();
 
 }
@@ -1730,6 +2287,12 @@ void PF::ShapesGroup::scale(int sf)
   for (int i = 0; i < rectangles1.size(); i++) {
     rectangles1[i].scale(sf);
   }
+  for (int i = 0; i < bpaths.size(); i++) {
+    bpaths[i].scale(sf);
+  }
+  for (int i = 0; i < polygons.size(); i++) {
+    polygons[i].scale(sf);
+  }
 }
 
 void PF::ShapesGroup::build_mask(SplineCurve& scurve)
@@ -1745,6 +2308,12 @@ void PF::ShapesGroup::build_mask(SplineCurve& scurve)
   }
   for (int i = 0; i < rectangles1.size(); i++) {
     rectangles1[i].build_mask(scurve);
+  }
+  for (int i = 0; i < bpaths.size(); i++) {
+    bpaths[i].build_mask(scurve);
+  }
+  for (int i = 0; i < polygons.size(); i++) {
+    polygons[i].build_mask(scurve);
   }
 }
 
