@@ -45,47 +45,68 @@ namespace PF {
   class ShapesConfigGUI: public OperationConfigGUI
   {
   protected:
-    Gtk::HBox curvesBox;
-    CurveEditor falloffCurveEditor;
-
+    Gtk::VBox controlsBox;
+    
     Gtk::HBox hbox_shapes_type;
     RadioImageButton btn_shapes;
    
-    Gtk::VBox vbox_shape;
-    Slider falloff_sl;
-    Slider opacity_sl;
-    Slider size_sl;
-    Slider angle_sl;
-
-    CheckBox hide_outline_chk;
+    Gtk::HBox hbox_shapes_options;
+    ToggleImageButton lock_cursor_mode_btn;
+    ToggleImageButton show_outline_btn;
+    ToggleImageButton lock_source_btn;
+    ToggleImageButton lock_shapes_btn;
+/*    CheckBox show_outline_chk;
     CheckBox lock_source_chk;
     CheckBox lock_shapes_chk;
+*/
+    Gtk::HSeparator separator, separator2;
+    
+    Gtk::VBox vbox_shape_values;
+    Slider falloff_sl;
+    Slider opacity_sl;
+    Slider pen_size_sl;
+    Slider radius_sl;
+    Slider radius_x_sl;
+    Slider radius_y_sl;
+    Slider angle_sl;
+
+    Gtk::VBox vbox_curves_prev;
+    
+    Gtk::HBox hbox_curves;
+    CurveEditor falloffCurveEditor;
+
 
   private:
     Point pt_current;
     Point pt_source;
     Point last_pt_origin;
     
-    int shape_type_selected;
+    int mo_current_shape_type;
     
     int mo_hit_test;
     int mo_shape_index;
     int mo_shape_additional;
+    
+    int mo_shape_node_selected;
+    int mo_node_selected;
 
-    bool dragging;
-    int adding;
+    bool mo_dragging;
+    int mo_adding;
     bool editting;
 
     Line line_add;
     Polygon polygon_add;
-    BPath bpath_add;
     
     std::vector<int> shapes_selected;
 
     void falloff_sl_changed();
     void opacity_sl_changed();
-    void size_sl_changed();
+    void pen_size_sl_changed();
+    void radius_sl_changed();
+    void radius_x_sl_changed();
+    void radius_y_sl_changed();
     void angle_sl_changed();
+    void show_outline_btn_changed();
     
 public:
     void pt_screen2image(Point& pt);
@@ -95,38 +116,70 @@ public:
     
     int get_falloff() { return falloff_sl.get_adjustment()->get_value(); }
     void set_falloff(int v) { falloff_sl.get_adjustment()->set_value(v); }
+    
     float get_opacity() { return opacity_sl.get_adjustment()->get_value()/100.f; }
     void set_opacity(float v) { opacity_sl.get_adjustment()->set_value(v*100.f); }
-    int get_size(int shape_type) { return size_sl.get_adjustment()->get_value(); }
-    void set_size(int shape_type, int v) { size_sl.get_adjustment()->set_value(v); }
+    
+    int get_pen_size() { return pen_size_sl.get_adjustment()->get_value(); }
+    void set_pen_size(int v) { pen_size_sl.get_adjustment()->set_value(v); }
+    
+    int get_radius() { return radius_sl.get_adjustment()->get_value(); }
+    void set_radius(int v) { radius_sl.get_adjustment()->set_value(v); }
+    
+    int get_radius_x() { return radius_x_sl.get_adjustment()->get_value(); }
+    void set_radius_x(int v) { radius_x_sl.get_adjustment()->set_value(v); }
+    
+    int get_radius_y() { return radius_y_sl.get_adjustment()->get_value(); }
+    void set_radius_y(int v) { radius_y_sl.get_adjustment()->set_value(v); }
+    
     float get_angle() { return angle_sl.get_adjustment()->get_value(); }
     void set_angle(float v) { angle_sl.get_adjustment()->set_value(v); }
 
-    bool get_hide_outline() { return hide_outline_chk.get_active(); }
-    bool get_lock_source() { return lock_source_chk.get_active(); }
-    bool get_lock_shapes() { return lock_shapes_chk.get_active(); }
+//    bool get_show_outline() { return show_outline_chk.get_active(); }
+//    bool get_lock_source() { return lock_source_chk.get_active(); }
+//    bool get_lock_shapes() { return lock_shapes_chk.get_active(); }
     
-    void draw_shape(Shape* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
+    bool get_lock_cursor_mode() { return lock_cursor_mode_btn.is_active(); }
+    bool get_show_outline() { return show_outline_btn.is_active(); }
+    bool get_lock_source() { return lock_source_btn.is_active(); }
+    bool get_lock_shapes() { return lock_shapes_btn.is_active(); }
+    
+    void draw_shape(Shape* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional, int hit_node_selected, bool selected);
     void draw_node(int x, int y, PF::PixelBuffer& buf_out, bool active_point);
     inline void draw_node(Point& pt, PF::PixelBuffer& buf_out, bool active_point)
     {
       draw_node(pt.get_x(), pt.get_y(), buf_out, active_point);
     }
 
-    void draw_line(Line* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
-    void draw_circle(Circle1* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
-    void draw_ellipse(Ellipse* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
-    void draw_rectangle(Rect1* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
-    void draw_polygon_segment(Polygon* shape, int start, int end, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int segm_selected, int node_selected);
-    void draw_polygon_falloff_segment(Polygon* shape, int start, int end, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, Point& center, int fall_selected, int node_fall_selected);
-    void draw_polygon(Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
-    void draw_bpath(BPath* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
-    void draw_bezier_curve(BPath* shape, int n, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool selected);
+    void draw_line(Point& pt1, Point& pt2, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool hit_tested, bool selected);
+    void draw_circle(Point& pt1, int radius, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool hit_tested, bool selected);
+    void draw_ellipse(Point& pt1, int radius_x, int radius_y, float angle, int quadrant, 
+                      PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool hit_tested, bool selected);
+    void draw_bezier3(Point& anchor1, Point& anchor2, Point& control, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool hit_tested, bool selected);
+    void draw_bezier4(Point& anchor1, Point& anchor2, Point& control1, Point& control2, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool hit_tested, bool selected);
+
+//    void draw_line(Line* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional);
+    void draw_circle(Circle* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional, bool selected);
+    void draw_ellipse(Ellipse* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional, bool selected);
+    void draw_rectangle(Rectangle* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional, bool selected);
+//    void draw_polygon_segment(Polygon* shape, int start, int end, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int segm_selected, int node_selected);
+//    void draw_polygon_falloff_segment(Polygon* shape, int start, int end, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, Point& center, int fall_selected, int node_fall_selected);
+    void draw_node_control_points(Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int node, int cntrl1_selected, int cntrl2_selected, int selected);
+    void draw_polygon(Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional, int hit_node_selected, bool selected);
+    void draw_line(Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional, int hit_node_selected, bool selected);
     
     void add_new_shape(PF::ShapesPar* par, int shape_type, Point& initial_pos, Point& source_pos);
-    void adjust_new_bpath_control_point();
+    void defalut_new_polygon(Point& pt, int mod_key );
+    void defalut_new_polygon_control_point(int point);
+    void adjust_polygon_falloff_point(Polygon* shape, int n);
     
-    void selection_clear() { shapes_selected.clear(); }
+    void defalut_new_line(Point& pt, int mod_key );
+    void defalut_new_line_control_point(int point);
+    
+    void shape_expanded(Shape* shape);
+    
+    void selection_changed();
+    void selection_clear() { shapes_selected.clear(); selection_changed(); }
     void selection_replace(int n);
     void selection_add(int n);
     void selection_remove(int n);
@@ -134,6 +187,23 @@ public:
     int get_selection_count() { return shapes_selected.size(); }
     int get_selected(int n) { return shapes_selected[n]; }
     
+    bool delete_shape(PF::ShapesPar* par);
+    bool selection_delete_shape(PF::ShapesPar* par);
+
+    void done_adding_shape();
+    
+    bool handle_add_new_shape(PF::ShapesPar* par, int button, int mod_key, double sx, double sy, bool& refresh);
+    bool handle_end_adding_new_shape(PF::ShapesPar* par, int button, int mod_key, double sx, double sy, bool& refresh);
+    bool handle_update_adding_new_shape(PF::ShapesPar* par, int button, int mod_key, double sx, double sy, bool& refresh);
+    bool handle_delete_shape(PF::ShapesPar* par, int button, int mod_key, double sx, double sy, bool& refresh);
+    bool handle_delete_node(PF::ShapesPar* par, int button, int mod_key, double sx, double sy, bool& refresh);
+    bool handle_add_node(PF::ShapesPar* par, int button, int mod_key, double sx, double sy, bool& refresh);
+    bool handle_add_control_point(PF::ShapesPar* par, int button, int mod_key, double sx, double sy, bool& refresh);
+    bool handle_selection(PF::ShapesPar* par, int button, int mod_key, double sx, double sy, bool& refresh);
+
+    bool handle_update_pos_adding_shape(PF::ShapesPar* par, int button, int mod_key, double sx, double sy, bool& refresh);
+    bool handle_drag_shape(PF::ShapesPar* par, int button, int mod_key, double sx, double sy, bool& refresh);
+    bool update_hit_test(PF::ShapesPar* par, int button, int mod_key, double sx, double sy, bool& refresh);
 
   public:
     ShapesConfigGUI( Layer* l );
@@ -143,8 +213,8 @@ public:
     void parameters_reset();
     
     void set_editting(bool e) { editting = e; }
-    bool get_editting() { return editting && !get_editing_flag(); }
-    int get_shape_type() { return shape_type_selected; }
+    bool get_editting() { return editting || !get_editing_flag(); }
+    int get_current_shape_type() { return mo_current_shape_type; }
 
     bool pointer_press_event( int button, double x, double y, int mod_key );
     bool pointer_release_event( int button, double x, double y, int mod_key );

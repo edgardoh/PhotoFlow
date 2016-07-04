@@ -40,9 +40,10 @@ namespace PF {
 
   class DrawShapesConfigGUI: public ShapesConfigGUI
   {
-    Gtk::VBox controlsBox;
     Gtk::HBox colorButtonsBox1;
     Gtk::HBox colorButtonsBox2;
+    
+    Gtk::HSeparator draw_shapes_separator;
 
     Gtk::Label fgd_color_label, bgd_color_label;
 

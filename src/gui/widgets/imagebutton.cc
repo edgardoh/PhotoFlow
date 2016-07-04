@@ -187,13 +187,15 @@ PF::RadioImageButton::RadioImageButton()
   btn_active = -1;
 }
 
-int PF::RadioImageButton::add_button( Glib::ustring active, Glib::ustring inactive, bool is_active )
+int PF::RadioImageButton::add_button( int btn_id, Glib::ustring active, Glib::ustring inactive, bool is_active )
 {
   Gtk::EventBox* evt_box= new Gtk::EventBox();
   Gtk::VBox* btn_box = new Gtk::VBox();
   Gtk::Image* btn_active_img = new Gtk::Image();
   Gtk::Image* btn_inactive_img = new Gtk::Image();
 
+  btn_ids.push_back( btn_id );
+  
   btn_active_img->set( active );
   btn_inactive_img->set( inactive );
 
@@ -215,8 +217,11 @@ int PF::RadioImageButton::add_button( Glib::ustring active, Glib::ustring inacti
   return (button_box.size()-1);
 }
 
-void PF::RadioImageButton::set_btn_active(int n)
+void PF::RadioImageButton::set_btn_active(int nb)
 {
+  int n = 0;
+  while ( n < btn_ids.size() && nb != btn_ids[n]) n++;
+  
   if (btn_active == n) return;
   
   if (btn_active >= 0) {
@@ -236,6 +241,7 @@ void PF::RadioImageButton::set_btn_active(int n)
     active_img[btn_active]->show();
   }
 
+  signal_clicked.emit();
 }
 
 bool PF::RadioImageButton::on_button_press_event( GdkEventButton* button )

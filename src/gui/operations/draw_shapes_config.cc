@@ -49,15 +49,15 @@ bgd_transparent_checkbox( this, "bgd_transparent", _("transparent"), false )
     colorButtonsBox1.pack_start( bgd_transparent_checkbox, Gtk::PACK_SHRINK );
     colorButtonsBox2.pack_start( fgd_color_label, Gtk::PACK_SHRINK );
     colorButtonsBox2.pack_start( fgd_color_button, Gtk::PACK_SHRINK );
-    controlsBox.pack_start( colorButtonsBox1 );
-    controlsBox.pack_start( colorButtonsBox2 );
+    vbox_curves_prev.pack_start( colorButtonsBox1 );
+    vbox_curves_prev.pack_start( colorButtonsBox2 );
 
+    vbox_curves_prev.pack_start( draw_shapes_separator, Gtk::PACK_SHRINK, 10 );
+    
     fgd_color_button.signal_color_set().
       connect( sigc::mem_fun(this, &PF::DrawShapesConfigGUI::on_fgd_color_changed) );
     bgd_color_button.signal_color_set().
       connect( sigc::mem_fun(this, &PF::DrawShapesConfigGUI::on_bgd_color_changed) );
-
-    add_widget( controlsBox );
 
 }
 

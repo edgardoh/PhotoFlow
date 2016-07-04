@@ -87,7 +87,40 @@ float PF::Point::distance2segment2(Point& l1, Point& l2)
 
   return (dx * dx + dy * dy);
 }
+/*
+// Find the distance squared from this to a bezier curve (l1, l2, l3)
+float PF::Point::distance2bezier32(Point& l1, Point& l2, Point& l3)
+{
+  float A = this->x - l1.x;
+  float B = this->y - l1.y;
+  float C = l2.x - l1.x;
+  float D = l2.y - l1.y;
 
+  float dot = A * C + B * D;
+  float len_sq = C * C + D * D;
+  float param = dot / len_sq;
+
+  float xx, yy;
+
+  if (param < 0.f || (l1.x == l2.x && l1.y == l2.y)) {
+    xx = l1.x;
+    yy = l1.y;
+  }
+  else if (param > 1) {
+    xx = l2.x;
+    yy = l2.y;
+  }
+  else {
+    xx = ((float)l1.x) + param * C;
+    yy = ((float)l1.y) + param * D;
+  }
+
+  float dx = ((float)this->x) - xx;
+  float dy = ((float)this->y) - yy;
+
+  return (dx * dx + dy * dy);
+}
+*/
 int PF::Point::get_quadrant(Point& pt)
 {
   int q = 0;
@@ -120,13 +153,65 @@ void PF::Point::rotate(Point& pivot, float sin_angle, float cos_angle)
                   sin_angle * (float)(get_x() - pivot.get_x()) + cos_angle * (float)(get_y() - pivot.get_y()) + (float)pivot.get_y() );
 }
 
+// true if the distance sqared to any point in the curve is <= dist
+bool PF::Point::in_bezier3(Point& anchor1, Point& anchor2, Point& control, float dist)
+{
+  std::vector<Point> points;
+  
+  PF::Polygon::inter_bezier3(anchor1, anchor2, control, points);
+  if (points.size() > 0) {
+    Point& pt1 = points[0];
+    for (int i = 1; i < points.size(); i++) {
+      Point& pt2 = points[i];
+      if (distance2segment2(pt1, pt2) <= dist)
+        return true;
+      pt1 = pt2;
+    }
+  }
+  return false;
+}
+
+bool PF::Point::in_bezier4(Point& anchor1, Point& anchor2, Point& control1, Point& control2, float dist)
+{
+  std::vector<Point> points;
+  
+  PF::Polygon::inter_bezier4(anchor1, anchor2, control1, control2, points);
+  if (points.size() > 0) {
+    Point& pt1 = points[0];
+    for (int i = 1; i < points.size(); i++) {
+      Point& pt2 = points[i];
+      if (distance2segment2(pt1, pt2) <= dist)
+        return true;
+      pt1 = pt2;
+    }
+  }
+  return false;
+}
+
+bool PF::Point::in_polygon(std::vector<Point>& points)
+{
+  const int polyCorners = points.size();
+  int i, j = polyCorners-1;
+  bool oddNodes = false;
+
+  for (i = 0; i < polyCorners; i++) {
+    if ( ( points[i].y< get_y() && points[j].y>=get_y() || points[j].y< get_y() && points[i].y>=get_y() ) && 
+        ( points[i].x<=get_x() || points[j].x<=get_x() ) ) {
+      oddNodes ^= ( (float)points[i].x + (float)(get_y()-points[i].y) / (float)(points[j].y-points[i].y) * (float)(points[j].x-points[i].x) < (float)get_x() );
+    }
+    j=i;
+  }
+
+  return oddNodes;
+}
+
 // -----------------------------------
 // Shape
 // -----------------------------------
 
-void PF::Shape::get_falloff_point_absolute(int n, Point& center, Point& absolute)
+void PF::Shape::get_falloff_point_absolute(int n, /*Point& center,*/ Point& absolute)
 {
-  Point& pt = get_point(n);
+/*  Point& pt = get_point(n);
   Point& pt_fall = get_falloff_point(n);
   int x, y;
   
@@ -140,9 +225,12 @@ void PF::Shape::get_falloff_point_absolute(int n, Point& center, Point& absolute
   else
     y = pt.get_y() + pt_fall.get_y();
   
-  absolute.set(x, y);
+  absolute.set(x, y);*/
+  
+  absolute = get_point(n);
+  absolute.offset( get_falloff_point(n) );
 }
-
+/*
 void PF::Shape::get_falloff_point_absolute(int n, VipsRect& rc, Point& absolute)
 {
   Point center;
@@ -158,11 +246,11 @@ void PF::Shape::get_falloff_point_absolute(int n, Point& absolute)
   
   get_falloff_point_absolute(n, center, absolute);
 }
-
+*/
 void PF::Shape::offset(int x, int y)
 {
-  for (int i = 0; i < points.size(); i++) {
-    points[i].offset(x, y);
+  for (int i = 0; i < get_points_count(); i++) {
+    offset_point(i, x, y);
   }
 }
 
@@ -176,27 +264,33 @@ void PF::Shape::offset_point(int n, int x, int y)
   get_point(n).offset(x, y);
 }
 
-void PF::Shape::offset_point(int n, Point prev, Point curr)
+void PF::Shape::offset_point(int n, Point& prev, Point& curr)
 {
   offset_point(n, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+}
+
+bool PF::Shape::falloff_can_be_offset(int n, Point& prev, Point& curr)
+{
+  return falloff_can_be_offset(n, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
 }
 
 void PF::Shape::offset_falloff_point(int n, int x, int y)
 {
 //  falloff_points[n].offset_pos(x, y);
-  falloff_points[n].offset(x, y);
+  if ( falloff_can_be_offset(n, x, y) )
+    falloff_points[n].offset(x, y);
 }
-
+/*
 void PF::Shape::offset_falloff_point(int n, Point& prev, Point& curr)
 {
   Point center;
   get_center(center);
   offset_falloff_point(n, center, prev, curr);
 }
-
-void PF::Shape::offset_falloff_point(int n, Point& center, Point& prev, Point& curr)
+*/
+void PF::Shape::offset_falloff_point(int n, /*Point& center,*/ Point& prev, Point& curr)
 {
-  if ( get_point(n).get_x() < center.get_x() ) {
+/*  if ( get_point(n).get_x() < center.get_x() ) {
     if ( get_point(n).get_y() < center.get_y() ) {
       offset_falloff_point(n, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
     }
@@ -214,9 +308,11 @@ void PF::Shape::offset_falloff_point(int n, Point& center, Point& prev, Point& c
       offset_falloff_point(n, prev.get_x()-curr.get_x(), prev.get_y()-curr.get_y());
     }
   }
+  */
+  offset_falloff_point(n, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
 }
 
-void PF::Shape::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source)
+void PF::Shape::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source, int options)
 {
   switch (hit_t)
   {
@@ -234,15 +330,21 @@ void PF::Shape::offset(int hit_t, Point& prev, Point& curr, int additional, bool
     offset_point(additional, prev, curr);
     break;
   case PF::Shape::hit_falloff_node:
-    offset_falloff_point(additional, curr, prev);
+    offset_falloff_point(additional, prev, curr);
     break;
   case PF::Shape::hit_segment:
-    offset_point(additional, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
-    offset_point(additional+1, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+//    offset_point(additional, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+//    offset_point(additional+1, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+    offset_point(additional, prev, curr);
+    offset_point(additional+1, prev, curr);
     break;
   case PF::Shape::hit_falloff_segment:
-    offset_falloff_point(additional, curr.get_x()-prev.get_x(), prev.get_y()-curr.get_y());
-    offset_falloff_point(additional+1, curr.get_x()-prev.get_x(), prev.get_y()-curr.get_y());
+//    offset_falloff_point(additional, curr.get_x()-prev.get_x(), prev.get_y()-curr.get_y());
+//    offset_falloff_point(additional+1, curr.get_x()-prev.get_x(), prev.get_y()-curr.get_y());
+    if (falloff_can_be_offset(additional, prev, curr) && falloff_can_be_offset(additional+1, prev, curr)) {
+      offset_falloff_point(additional, prev, curr);
+      offset_falloff_point(additional+1, prev, curr);
+    }
     break;
   }
 }
@@ -270,7 +372,7 @@ void PF::Shape::scale(int scale)
   source_point.scale(scale);
   
   falloff /= scale;
-  size /= scale;
+  pen_size /= scale;
 
 }
 
@@ -328,8 +430,22 @@ void PF::Shape::expand(int n)
 
 void PF::Shape::expand_falloff(int n)
 {
-  for (int i = 0; i < falloff_points.size(); i++) {
+/*  for (int i = 0; i < falloff_points.size(); i++) {
     falloff_points[i].set(std::max(0, falloff_points[i].get_x()+n), std::max(0, falloff_points[i].get_y()+n));
+  }*/
+  Point center;
+  get_center(center);
+  int x, y;
+  for (int i = 0; i < points.size(); i++) {
+    if ( get_point(i).get_x() < center.get_x() )
+      x = - n;
+    else
+      x =  n;
+    if ( get_point(i).get_y() < center.get_y() )
+      y = - n;
+    else
+      y =  n;
+    offset_falloff_point(i, x, y);
   }
 }
 
@@ -368,7 +484,7 @@ void PF::Shape::get_falloff_rect(VipsRect* rc)
     get_center(center);
     
     for (int i = 0; i < points.size(); i++) {
-      get_falloff_point_absolute(i, center, absolute);
+      get_falloff_point_absolute(i, /*center,*/ absolute);
       
       rc->left = std::min(rc->left, absolute.get_x());
       rc->top = std::min(rc->top, absolute.get_y());
@@ -408,20 +524,20 @@ float PF::Shape::point_in_ellipse(int x, int y, int h, int v, float rx2, float r
 // returns the intersection point from segment (A, B) and point C
 void PF::Shape::get_intersect_point(Point& A, Point& B, Point& C, Point& pt_out)
 {
-/*    int x1=A.get_x(), y1=A.get_y(), x2=B.get_x(), y2=B.get_y(), x3=C.get_x(), y3=C.get_y();
-    int px = x2-x1, py = y2-y1, dAB = px*px + py*py;
-    int u = ((x3 - x1) * px + (y3 - y1) * py) / dAB;
-    pt_out.set( x1 + u * px, y1 + u * py);*/
-  
-/*  int k = ((B.get_y()-A.get_y()) * (C.get_x()-A.get_x()) - (B.get_x()-A.get_x()) * (C.get_y()-A.get_y())) / 
-      ( (B.get_y()-A.get_y())*(B.get_y()-A.get_y()) + (B.get_x()-A.get_x())*(B.get_x()-A.get_x()) );
-  pt_out.set( C.get_x() - k * (B.get_y()-A.get_y()), 
-  C.get_y() + k * (B.get_x()-A.get_x()) );*/
-  
-  int x1=A.get_x(), y1=A.get_y(), x2=B.get_x(), y2=B.get_y(), x3=C.get_x(), y3=C.get_y();
+/*  float x1=A.get_x(), y1=A.get_y(), x2=B.get_x(), y2=B.get_y(), x3=C.get_x(), y3=C.get_y();
+  float px = x2-x1, py = y2-y1, dAB = px*px + py*py;
+  float u = (float)((x3 - x1) * px + (y3 - y1) * py) / dAB;
+    pt_out.set( x1 + u * px, y1 + u * py);
+  */
+/*  float k = (float)((B.get_y()-A.get_y()) * (C.get_x()-A.get_x()) - (B.get_x()-A.get_x()) * (C.get_y()-A.get_y())) / 
+     (float) ( (B.get_y()-A.get_y())*(B.get_y()-A.get_y()) + (B.get_x()-A.get_x())*(B.get_x()-A.get_x()) );
+  pt_out.set( C.get_x() - k * (float)(B.get_y()-A.get_y()), 
+  C.get_y() + k * (float)(B.get_x()-A.get_x()) );
+  */
+  double x1=A.get_x(), y1=A.get_y(), x2=B.get_x(), y2=B.get_y(), x3=C.get_x(), y3=C.get_y();
   double dx = x2 - x1;
   double dy = y2 - y1;
-  double mag = sqrt(dx*dx + dy*dy);
+  double mag = sqrtf(dx*dx + dy*dy);
   dx /= mag;
   dy /= mag;
 
@@ -429,6 +545,16 @@ void PF::Shape::get_intersect_point(Point& A, Point& B, Point& C, Point& pt_out)
   double lambda = (dx * (x3 - x1)) + (dy * (y3 - y1));
   pt_out.set( (dx * lambda) + x1,
    (dy * lambda) + y1);
+/*  
+//  if (A.x == B.x && A.y == B.y) A.x -= 0.00001;
+
+  float m = ((float)(A.y - B.y) / (float)(A.x - B.x));
+  float b = (float)C.y - (-1.f/m) * (float)C.x;
+  
+//  y = m*(x-B.x)+B.y
+  float x = ( - (-1/m)*C.x + C.y - B.y + m*B.x)/2.f;
+   float y = -(1/m)*(x-C.x)+C.y;
+   pt_out.set(x,y);*/
 }
 
 void PF::Shape::get_segment_bounding_rect(Point& pt1, Point& pt2, VipsRect* rc)
@@ -458,12 +584,77 @@ void PF::Shape::get_expanded_rec_from_line(Point& pt1, Point& pt2, int amount, P
   dy /= dist;
   const float amount_x = ((float)amount)*dx;
   const float amount_y = ((float)amount)*dy;
-  a.set( pt1.get_x() + amount_y + 1, pt1.get_y() - amount_x + 1);
+/*  a.set( pt1.get_x() + amount_y + 1, pt1.get_y() - amount_x + 1);
   b.set( pt1.get_x() - amount_y + 1, pt1.get_y() + amount_x + 1);
   d.set( pt2.get_x() + amount_y + 1, pt2.get_y() - amount_x + 1);
   c.set( pt2.get_x() - amount_y + 1, pt2.get_y() + amount_x + 1);
+*/
+  a.set( pt1.get_x() - amount_y + 1, pt1.get_y() + amount_x + 1);
+  c.set( pt2.get_x() + amount_y + 1, pt2.get_y() - amount_x + 1);
+  b.set( pt2.get_x() - amount_y + 1, pt2.get_y() + amount_x + 1);
+  d.set( pt1.get_x() + amount_y + 1, pt1.get_y() - amount_x + 1);
 
 }
+
+// returns a point results of proyecting pt1 from segment pt1-pt2 by amount
+void PF::Shape::get_pt_proyected_from_segment(Point& pt1, Point& pt2, int amount, Point& a)
+{
+  float dx = pt1.get_x()-pt2.get_x();
+  float dy = pt1.get_y()-pt2.get_y();
+  const float dist = sqrtf(dx*dx + dy*dy);
+  dx /= dist;
+  dy /= dist;
+  const float amount_x = ((float)amount)*dx;
+  const float amount_y = ((float)amount)*dy;
+  a.set( pt1.get_x() + amount_y + 1, pt1.get_y() - amount_x + 1);
+/*  b.set( pt1.get_x() - amount_y + 1, pt1.get_y() + amount_x + 1);
+  d.set( pt2.get_x() + amount_y + 1, pt2.get_y() - amount_x + 1);
+  c.set( pt2.get_x() - amount_y + 1, pt2.get_y() + amount_x + 1);
+*/
+}
+
+void PF::Shape::get_pt1_proyected_from_segment(Point& pt1, Point& pt2, int amount, Point& a, Point& d)
+{
+  float dx = pt1.get_x()-pt2.get_x();
+  float dy = pt1.get_y()-pt2.get_y();
+  const float dist = sqrtf(dx*dx + dy*dy);
+  dx /= dist;
+  dy /= dist;
+  const float amount_x = ((float)amount)*dx;
+  const float amount_y = ((float)amount)*dy;
+/*  a.set( pt1.get_x() + amount_y + 1, pt1.get_y() - amount_x + 1);
+  b.set( pt1.get_x() - amount_y + 1, pt1.get_y() + amount_x + 1);
+  d.set( pt2.get_x() + amount_y + 1, pt2.get_y() - amount_x + 1);
+  c.set( pt2.get_x() - amount_y + 1, pt2.get_y() + amount_x + 1);
+*/
+  a.set( pt1.get_x() - amount_y/* + 1*/, pt1.get_y() + amount_x/* + 1*/);
+//  c.set( pt2.get_x() + amount_y + 1, pt2.get_y() - amount_x + 1);
+//  b.set( pt2.get_x() - amount_y + 1, pt2.get_y() + amount_x + 1);
+  d.set( pt1.get_x() + amount_y/* + 1*/, pt1.get_y() - amount_x /*+ 1*/);
+
+}
+
+void PF::Shape::get_pt2_proyected_from_segment(Point& pt1, Point& pt2, int amount, Point& b, Point& c)
+{
+  float dx = pt1.get_x()-pt2.get_x();
+  float dy = pt1.get_y()-pt2.get_y();
+  const float dist = sqrtf(dx*dx + dy*dy);
+  dx /= dist;
+  dy /= dist;
+  const float amount_x = ((float)amount)*dx;
+  const float amount_y = ((float)amount)*dy;
+/*  a.set( pt1.get_x() + amount_y + 1, pt1.get_y() - amount_x + 1);
+  b.set( pt1.get_x() - amount_y + 1, pt1.get_y() + amount_x + 1);
+  d.set( pt2.get_x() + amount_y + 1, pt2.get_y() - amount_x + 1);
+  c.set( pt2.get_x() - amount_y + 1, pt2.get_y() + amount_x + 1);
+*/
+//  a.set( pt1.get_x() - amount_y + 1, pt1.get_y() + amount_x + 1);
+  c.set( pt2.get_x() + amount_y + 1, pt2.get_y() - amount_x + 1);
+  b.set( pt2.get_x() - amount_y + 1, pt2.get_y() + amount_x + 1);
+//  d.set( pt1.get_x() + amount_y + 1, pt1.get_y() - amount_x + 1);
+
+}
+
 
 void PF::Shape::rotate(VipsRect* rc)
 {
@@ -504,176 +695,23 @@ void PF::Shape::rotate(VipsRect* rc, float sin_angle, float cos_angle, Point& ce
 }
 
 // -----------------------------------
-// Line
+// SegmentInfo
 // -----------------------------------
 
-void PF::Line::expand_falloff(int n)
+void PF::SegmentInfo::scale(int sf)
 {
-  set_falloff(get_falloff()+n);
-}
-
-void PF::Line::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source)
-{
-  switch (hit_t)
-  {
-  case PF::Shape::hit_falloff_segment:
-    PF::Shape::offset(PF::Shape::hit_falloff, prev, curr, additional, lock_source);
-    break;
-  default:
-    PF::Shape::offset(hit_t, prev, curr, additional, lock_source);
-    break;
-  }
-}
-
-int PF::Line::hit_test(Point& pt, int& additional)
-{
-  int hit_t = hit_none;
-  
-  // check the nodes
-  int i = 0;
-  while ( i < get_points().size() && hit_t == hit_none ) {
-    hit_t = hit_test_node(i, pt, additional);
-    i++;
-  }
-    
-  // check shape & falloff
-  if ( hit_t == hit_none ) {
-    const int delta2 = (get_size()+hit_test_delta)*(get_size()+hit_test_delta);
-    const int fall2 = (get_size()+get_falloff()+hit_test_delta)*(get_size()+get_falloff()+hit_test_delta);
-    Point pt1, pt2;
-    int i = 0;
-    while ( i < get_points().size()-1 && hit_t == hit_none ) {
-      pt1 = get_point(i);
-      pt2 = get_point(i+1);
-      const float dist2 = pt.distance2segment2(pt1, pt2);
-      
-      if (dist2 <= delta2) {
-        hit_t = hit_segment;
-        additional = i;
-      }
-      else if (dist2 <= fall2) {
-        hit_t = hit_falloff_segment;
-        additional = i;
-      }
-      i++;
-    }    
-  }
-  // check the source
-  if ( hit_t == hit_none && get_has_source()) {
-    Line shape = *this;
-    shape.set_has_source(false);
-    shape.offset(get_source_point());
-    hit_t = shape.hit_test(pt, additional);
-    if ( hit_t != hit_none) hit_t = hit_source;
-  }
-
-  return hit_t;
-}
-
-void PF::Line::get_rect(VipsRect* rc)
-{
-  PF::Shape::get_rect(rc);
-  
-  rc->left -= get_size();
-  rc->top -= get_size();
-  rc->width += get_size()*2;
-  rc->height += get_size()*2;
-}
-
-void PF::Line::get_falloff_rect(VipsRect* rc)
-{
-  get_rect(rc);
-  
-  rc->left -= get_falloff();
-  rc->top -= get_falloff();
-  rc->width += get_falloff()*2;
-  rc->height += get_falloff()*2;
-}
-
-void PF::Line::build_mask(SplineCurve& scurve)
-{
-//  std::cout<<"PF::Line::build_mask()"<<std::endl;
-  
-  // free mask if already exists
-  if (mask != NULL) {
-    free(mask);
-    mask = NULL;
-  }
- 
-  // if no falloff there's no point in returning a mask
-  if (get_falloff()+get_size() <= 0) return;
-  
-  // get bounding rect
-  VipsRect rc;
-  get_falloff_rect(&rc);
-
-  // nothing to return
-  if (rc.width < 1 || rc.height < 1) return;
-  
-  // save offset
-  Point pt_offset(-rc.left, -rc.top);
-  
-  // offset to (0, 0)
-  rc.left = rc.top = 0;
-  
-  // alloc mask
-  mask = (float*)malloc(rc.width * rc.height * sizeof(float));
-  memset(mask, 0, rc.width * rc.height * sizeof(float));
-
-  // populate the buffer
-  Point pt;
-  Point pt1;
-  Point pt2;
-  VipsRect rcs;
-  const float borderf2 = (get_size()+get_falloff()) * (get_size()+get_falloff()); // square distance to the border (falloff)
-  const float border2 = get_size() * get_size(); // square distance to the border (shape)
-  
-  // go through all segments
-  for (int i=0; i < get_points().size()-1; i++) {
-    pt1 = get_point(i);
-    pt1.offset(pt_offset);
-    pt2 = get_point(i+1);
-    pt2.offset(pt_offset);
-
-    // get segment bounding rect
-    get_segment_bounding_rect(pt1, pt2, get_size()+get_falloff(), &rcs);
-       
-    // get the falloff for each point
-    for(int y = rcs.top; y <  rcs.top+rcs.height; y++) {
-      float* pmask = mask + y * rc.width;
-      for(int x = rcs.left; x < rcs.left+rcs.width; x++) {
-        pt.set(x, y);
-        
-        // square distance to the segment
-        const float dist2 = pt.distance2segment2(pt1, pt2);
-        if (dist2 < border2) {
-          pmask[x] = std::max(pmask[x], get_opacity());
-        }
-        else if (dist2 < borderf2) {
-          const float f = (borderf2 - dist2) / (borderf2-border2);
-          const float f2 = f * f * get_opacity();
-          const float f2s = scurve.get_value(f2);
-          pmask[x] = std::max(pmask[x], f2s);
-        }
-      }
-    }
-  }
-
+  control_pt1.scale(sf);
+  control_pt2.scale(sf);
 }
 
 // -----------------------------------
-// Circle1
+// Circle
 // -----------------------------------
 
-void PF::Circle1::expand_falloff(int n)
-{
-  set_falloff(get_falloff()+n);
-}
-
-int PF::Circle1::hit_test(Point& pt, int& additional)
+int PF::Circle::hit_test(Point& pt, int& additional)
 {
   Point& point = get_point();
-  const int radius = get_size();
+  const int radius = get_radius();
   int dx = abs(pt.get_x()-point.get_x());
   int dy = abs(pt.get_y()-point.get_y());
   int R = radius+get_falloff()+2;
@@ -709,15 +747,15 @@ int PF::Circle1::hit_test(Point& pt, int& additional)
   return hit_none;
 }
 
-void PF::Circle1::get_rect(VipsRect* rc)
+void PF::Circle::get_rect(VipsRect* rc)
 {
-  const int R = get_size();
+  const int R = get_radius();
   rc->left = get_point().get_x()-R;
   rc->top = get_point().get_y()-R;
   rc->width = rc->height = R*2;
 }
 
-void PF::Circle1::get_falloff_rect(VipsRect* rc)
+void PF::Circle::get_falloff_rect(VipsRect* rc)
 {
   get_rect(rc);
   
@@ -727,9 +765,9 @@ void PF::Circle1::get_falloff_rect(VipsRect* rc)
   rc->height += get_falloff()*2;
 }
 
-void PF::Circle1::build_mask(SplineCurve& scurve)
+void PF::Circle::build_mask(SplineCurve& scurve)
 {
-//  std::cout<<"PF::Circle1::build_mask()"<<std::endl;
+//  std::cout<<"PF::Circle::build_mask()"<<std::endl;
   
   if (mask != NULL) {
     free(mask);
@@ -756,8 +794,8 @@ void PF::Circle1::build_mask(SplineCurve& scurve)
   // populate the buffer
   Point center(get_point());
   center.offset(pt_offset);
-  const float radius_2 = get_size()*get_size();
-  const float radiusf_2 = (get_size()+get_falloff())*(get_size()+get_falloff());
+  const float radius_2 = get_radius()*get_radius();
+  const float radiusf_2 = (get_radius()+get_falloff())*(get_radius()+get_falloff());
   
   for(int y = 0; y < rc.height; y++) {
     float* pmask = mask + y * rc.width;
@@ -783,13 +821,14 @@ void PF::Circle1::build_mask(SplineCurve& scurve)
 
 int PF::Ellipse::get_falloff_y() 
 {
-  int falloff = get_falloff_x() * ((float)get_radius_y()/(float)get_radius_x());
+  int falloff = get_radius_y() * ((float)get_falloff_x()/(float)get_radius_x());
   
   if (falloff <= 0 && get_falloff_x() > 0) falloff = 1;
   
   return falloff; 
+//  return get_falloff();
 }
-
+/*
 void PF::Ellipse::set_size(int n)
 { 
   int ny = n * ((float)get_radius_y()/(float)get_radius_x());
@@ -803,6 +842,17 @@ void PF::Ellipse::set_size(int n)
 void PF::Ellipse::expand_falloff(int n)
 {
   set_falloff(get_falloff()+n);
+}
+*/
+
+void PF::Ellipse::expand(int n)
+{
+  int ny = n * ((float)get_radius_y()/(float)get_radius_x());
+  
+  if (ny <= 0 && n > 0) ny = 1;
+  
+  set_radius_y(ny+get_radius_y()); 
+  set_radius_x(n+get_radius_x()); 
 }
 
 int PF::Ellipse::hit_test(Point& pt, int& additional)
@@ -983,7 +1033,7 @@ int PF::Ellipse::hit_test(Point& _pt, float angle_1, int& additional)
   return hit_none;
 }
 
-void PF::Ellipse::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source)
+void PF::Ellipse::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source, int options)
 {
   switch (hit_t)
   {
@@ -992,13 +1042,13 @@ void PF::Ellipse::offset(int hit_t, Point& prev, Point& curr, int additional, bo
       set_radius_y(get_radius_y() + (prev.get_y() - curr.get_y()));
     }
     else if (additional == 1) {
-      set_size(get_radius_x() + (curr.get_x() - prev.get_x()));
+      set_radius_x(get_radius_x() + (curr.get_x() - prev.get_x()));
     }
     else if (additional == 2) {
       set_radius_y(get_radius_y() + (curr.get_y() - prev.get_y()));
     }
     else if (additional == 3) {
-      set_size(get_radius_x() + (prev.get_x() - curr.get_x()));
+      set_radius_x(get_radius_x() + (prev.get_x() - curr.get_x()));
     }
     break;
   case PF::Shape::hit_segment:
@@ -1016,7 +1066,7 @@ void PF::Ellipse::offset(int hit_t, Point& prev, Point& curr, int additional, bo
   case PF::Shape::hit_falloff_segment:
   case PF::Shape::hit_falloff_node:
   default:
-    PF::Shape::offset(hit_t, prev, curr, additional, lock_source);
+    PF::Shape::offset(hit_t, prev, curr, additional, lock_source, options);
     break;
   }
 
@@ -1098,6 +1148,7 @@ void PF::Ellipse::build_mask(SplineCurve& scurve)
   
     // This loop removes 1 from n until it is within the shape
     const int y2 = y*y;
+    const float y2_hf2 = (float)(y2) / hf2;
     while ( wf2*(hf2-y2) < hf2*nf*nf && nf>0 ) --nf;
     while ( w2*(h2-y2) < h2*n*n && n>0 ) --n;
   
@@ -1110,7 +1161,7 @@ void PF::Ellipse::build_mask(SplineCurve& scurve)
         pmask1[x] = pmask2[x] = pmask1[x2] = pmask2[x2] = get_opacity();
      }
       else {
-        const float f = ( (float)((x-center.get_x())*(x-center.get_x())) / wf2 + (float)(y*y) / hf2 ) - scale;
+        const float f = ( (float)((x-center.get_x())*(x-center.get_x())) / wf2 + y2_hf2 ) - scale;
         const float f1 = 1.f - ( f * scale_1 );
         if (f1 > 1.f || f1 < 0.f) {
           std::cout<<"PF::Ellipse::build_mask(): f out of range!!! f: "<<f<<", x: "<<x<<", n: "<<n<<", nf: "<<nf<<std::endl;
@@ -1225,6 +1276,7 @@ void PF::Ellipse::build_mask(SplineCurve& scurve, float angle_1)
 
 }
 
+#if 0
 // -----------------------------------
 // Rect1
 // -----------------------------------
@@ -1243,7 +1295,7 @@ void PF::Rect1::offset_point(int n, int x, int y)
   }
 }
 
-void PF::Rect1::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source)
+void PF::Rect1::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source, int options)
 {
   int x, y;
   Point center;
@@ -1351,7 +1403,7 @@ void PF::Rect1::offset(int hit_t, Point& prev, Point& curr, int additional, bool
     }
     break;
   default:
-    PF::Shape::offset(hit_t, prev, curr, additional, lock_source);
+    PF::Shape::offset(hit_t, prev, curr, additional, lock_source, options);
     break;
   }
 
@@ -1374,13 +1426,13 @@ int PF::Rect1::hit_test(Point& pt, int& additional)
     get_center(center, rcs);
 
     // falloff nodes
-    get_falloff_point_absolute(0, center, pt_fall0);
+    get_falloff_point_absolute(0, /*center,*/ pt_fall0);
     if ( hit_test_node(pt, pt_fall0) ) {
       additional = 0;
       return hit_falloff_node;
     }
 
-    get_falloff_point_absolute(1, center, pt_fall1);
+    get_falloff_point_absolute(1, /*center,*/ pt_fall1);
     pt1.set( pt_fall1.get_x(), pt_fall0.get_y() );
     if ( hit_test_node(pt, pt1) ) {
       additional = 1;
@@ -1638,143 +1690,44 @@ void PF::Rect1::build_mask(SplineCurve& scurve)
   }
   
 }
+#endif
 
 // -----------------------------------
 // Polygon
 // -----------------------------------
 
-void PF::Polygon::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source)
+void PF::Polygon::scale(int scale)
 {
-  int x, y;
-  Point center;
+  PF::Shape::scale(scale);
   
-  switch (hit_t)
-  {
-  case PF::Shape::hit_segment:
-    if (additional == get_points_count()-1) {
-      offset_point(additional, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
-      offset_point(0, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
-    }
-    else {
-      PF::Shape::offset(hit_t, prev, curr, additional, lock_source);
-    }
-    break;
-  case PF::Shape::hit_falloff_segment:
-  default:
-    PF::Shape::offset(hit_t, prev, curr, additional, lock_source);
-    break;
+  for (int i = 0; i < get_segments_count(); i++) {
+    get_segment_info(i).scale(scale);
   }
 
 }
 
-int PF::Polygon::hit_test(Point& pt, int& additional)
+void PF::Polygon::fill_polygon(std::vector<Point>& points, float* buffer, VipsRect& rc)
 {
-  int hit_t = hit_none;
-  
-  // check the nodes
-  int i = 0;
-  while ( i < get_points().size() && hit_t == hit_none ) {
-    hit_t = hit_test_node(i, pt, additional);
-    i++;
-  }
-    
-  Point pt1;
-  Point center;
-  
-  get_center(center);
-  
-  // check falloff nodes
-  i = 0;
-  while ( i < get_points().size() && hit_t == hit_none ) {
-    get_falloff_point_absolute(i, center, pt1);
-    if ( hit_test_node(pt, pt1) ) {
-      hit_t = hit_falloff_node;
-      additional = i;
-    }
-    i++;
-  }
-    
-  // check shape & falloff
-  if ( hit_t == hit_none ) {
-    const int delta2 = (hit_test_delta)*(hit_test_delta);
-//    const int delta2 = (get_size()+hit_test_delta)*(get_size()+hit_test_delta);
-//    const int fall2 = (get_size()+get_falloff()+hit_test_delta)*(get_size()+get_falloff()+hit_test_delta);
-    Point pt1, pt2;
-    int i = 0;
-    while ( i < get_points().size()-1 && hit_t == hit_none ) {
-      pt1 = get_point(i);
-      pt2 = get_point(i+1);
-      const float dist2 = pt.distance2segment2(pt1, pt2);
-      
-      if (dist2 <= delta2) {
-        hit_t = hit_segment;
-        additional = i;
-      }
-/*      else if (dist2 <= fall2) {
-        hit_t = hit_falloff_segment;
-        additional = i;
-      }*/
-      i++;
-    }    
-    // check last segment
-    if ( hit_t == hit_none ) {
-      pt1 = get_point(get_points().size()-1);
-      pt2 = get_point(0);
-      const float dist2 = pt.distance2segment2(pt1, pt2);
-      
-      if (dist2 <= delta2) {
-        hit_t = hit_segment;
-        additional = get_points().size()-1;
-      }
-/*      else if (dist2 <= fall2) {
-        hit_t = hit_falloff_segment;
-        additional = get_points().size()-1;
-      }*/
-    }
-  }
-  // check the source
-  if ( hit_t == hit_none && get_has_source()) {
-    Polygon shape = *this;
-    shape.set_has_source(false);
-    shape.offset(get_source_point());
-    hit_t = shape.hit_test(pt, additional);
-    if ( hit_t != hit_none) hit_t = hit_source;
-  }
-
-  return hit_t;
-}
-
-//#define MAX_POLY_CORNERS 100
-
-void PF::Shape::fill_polygon(VipsRect& rc)
-{
-  int  nodes, /*nodeX[MAX_POLY_CORNERS],*/ pixelX, pixelY, i, j, swap ;
-  int polyCorners = get_points_count();
+  int  nodes, pixelX, pixelY, i, j, swap ;
+  int polyCorners = points.size();
   int* nodeX = (int*)malloc(polyCorners * sizeof(int));
   
-/*  int IMAGE_TOP = rc_s.top-rc.top;
-  int IMAGE_LEFT = rc_s.left-rc.left;
-  int IMAGE_BOT = IMAGE_TOP + rc_s.height;
-  int IMAGE_RIGHT = IMAGE_LEFT + rc_s.width;
-  */
   int IMAGE_TOP = rc.top;
   int IMAGE_LEFT = rc.left;
   int IMAGE_BOT = IMAGE_TOP + rc.height;
   int IMAGE_RIGHT = IMAGE_LEFT + rc.width;
   
-  
-//  float* polyY = (float*)malloc(polyCorners * sizeof(float));
-  
   //  Loop through the rows of the image.
   for (pixelY=IMAGE_TOP; pixelY<IMAGE_BOT; pixelY++) {
 
     //  Build a list of nodes.
-    nodes=0; j=polyCorners-1;
+    nodes=0;
+    j=polyCorners-1;
     for (i=0; i<polyCorners; i++) {
-      if ( (get_point(i).get_y()<(double) pixelY && get_point(j).get_y()>=(double) pixelY)
-      ||  (get_point(j).get_y()<(double) pixelY && get_point(i).get_y()>=(double) pixelY) ) {
-        nodeX[nodes++]=(int) ( get_point(i).get_x() + ((float)(pixelY-get_point(i).get_y()) / (float)(get_point(j).get_y()-get_point(i).get_y())) 
-        * (float)(get_point(j).get_x()-get_point(i).get_x()) ); 
+      if ( (points[i].y<(double) pixelY && points[j].y>=(double) pixelY)
+      ||  (points[j].y<(double) pixelY && points[i].y>=(double) pixelY) ) {
+        nodeX[nodes++]=(int) ( points[i].x + ((float)(pixelY-points[i].y) / (float)(points[j].y-points[i].y)) 
+        * (float)(points[j].x-points[i].x) ); 
       }
       j=i; 
     }
@@ -1798,7 +1751,7 @@ void PF::Shape::fill_polygon(VipsRect& rc)
         if (nodeX[i+1]> IMAGE_RIGHT) nodeX[i+1]=IMAGE_RIGHT;
         for (pixelX=nodeX[i]; pixelX<nodeX[i+1]; pixelX++) {
 //          fillPixel(pixelX,pixelY);
-          mask[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = 1.f;
+          buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = 1.f;
         }
       }
     }
@@ -1806,22 +1759,1639 @@ void PF::Shape::fill_polygon(VipsRect& rc)
 
   if (nodeX) free(nodeX);
 }
-/*
-bool PF::Shape::point_in_rectangle(Point& pt, Point& pt1, Point& pt2, Point& pt3)
+
+// returns a vector with bezier curve points
+void PF::Polygon::inter_bezier3(Point& anchor1, Point& anchor2, Point& control, std::vector<Point>& points)
 {
-  const float bax = pt2.get_x() - pt1.get_x();
-  const float bay = pt2.get_y() - pt1.get_y();
-  const float dax = pt3.get_x() - pt1.get_x();
-  const float day = pt3.get_y() - pt1.get_y();
+  Point pt1, pt2;
+  float step = 1.f/100.f;
+  
+  pt1 = anchor1;
+  points.push_back(pt1);
+  
+  //This loops draws each step of the curve
+  for (float t = 0.f; t <= 1.f; t += step) {
+    pt2.set( (1.f - t) * (1.f - t) * (float)anchor1.x + 2.f * (1.f - t) * t * (float)control.x + t * t * (float)anchor2.x, 
+             (1.f - t) * (1.f - t) * (float)anchor1.y + 2.f * (1.f - t) * t * (float)control.y + t * t * (float)anchor2.y );
+    points.push_back(pt2);
+    
+    pt1 = pt2;
+  } 
+  
+  //As a final step, make sure the curve ends on the second anchor
+//  points.push_back(anchor2);
+  
+}
 
-  if ( (float)(pt.get_x() - pt1.get_x()) * bax + (float)(pt.get_y() - pt1.get_y()) * bay < 0.0f) return false;
-  if ( (float)(pt.get_x() - pt2.get_x()) * bax + (float)(pt.get_y() - pt2.get_y()) * bay > 0.0f) return false;
-  if ( (float)(pt.get_x() - pt1.get_x()) * dax + (float)(pt.get_y() - pt1.get_y()) * day < 0.0f) return false;
-  if ( (float)(pt.get_x() - pt3.get_x()) * dax + (float)(pt.get_y() - pt3.get_y()) * day > 0.0f) return false;
+void PF::Polygon::inter_bezier4(Point& anchor1, Point& anchor2, Point& control1, Point& control2, std::vector<Point>& points)
+{
+  Point pt1, pt2;
+  float step = 1.f/100.f;
+  
+  pt1 = anchor1;
+  points.push_back(pt1);
 
-  return true;
+  //This loops draws each step of the curve
+  for (float u = 0.f; u <= 1.f; u += step) { 
+    pt2.set( powf(u,3)*(anchor2.get_x()+3*(control1.get_x()-control2.get_x())-anchor1.get_x())+3*powf(u,2)*(anchor1.get_x()-2*control1.get_x()+control2.get_x())+3*u*(control1.get_x()-anchor1.get_x())+anchor1.get_x(),
+    powf(u,3)*(anchor2.get_y()+3*(control1.get_y()-control2.get_y())-anchor1.get_y())+3*powf(u,2)*(anchor1.get_y()-2*control1.get_y()+control2.get_y())+3*u*(control1.get_y()-anchor1.get_y())+anchor1.get_y() );
+    points.push_back(pt2);
+
+    pt1 = pt2;
+  } 
+  
+  //As a final step, make sure the curve ends on the second anchor
+//  points.push_back(anchor2);
+  
+}
+
+// return a vector with all segments points
+void PF::Polygon::inter_segments(std::vector<Point>& points)
+{
+  if (get_points_count() > 1) {
+    Point pt1, pt2;
+    SegmentInfo si;
+    
+    for (int i = 0; i < get_segments_count(); i++) {
+      get_segment(i, pt1, pt2, si);
+      
+      if (si.get_segment_type() == PF::SegmentInfo::line) {
+        points.push_back(pt1);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+        inter_bezier3(pt1, pt2, si.get_control_pt1(), points);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+        inter_bezier4(pt1, pt2, si.get_control_pt1(), si.get_control_pt2(), points);
+      }
+    }
+    
+    points.push_back(pt2);
+  }
+}
+
+void PF::Polygon::add_point(Point pt)
+{
+  PF::Shape::add_point(pt);
+  
+  SegmentInfo si;
+  s_info.push_back(si);
+}
+
+void PF::Polygon::insert_point(Point& pt, int _position)
+{
+  const int position = circ_idx(_position,get_points_count());
+  
+  PF::Shape::insert_point(pt, position);
+  
+  SegmentInfo si;
+  
+  std::vector<SegmentInfo>::iterator it;
+  it = s_info.begin();
+  it = s_info.insert( it+position, si );
+}
+
+void PF::Polygon::insert_point(Point& pt, int hit_t, int additional)
+{
+  if (hit_t == PF::Shape::hit_segment) {
+    insert_point(pt, additional+1);
+  }
+  else if (hit_t == PF::Shape::hit_node) {
+/*    if (additional == 0) {
+      SegmentInfo& si = get_segment_info(additional);
+      if (si.get_segment_type() == PF::SegmentInfo::line) {
+        set_segment_type( additional, PF::SegmentInfo::bezier3_l );
+        //        default_control_point(additional, hit_control_point);
+      }
+      if (si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+        set_segment_type( additional, PF::SegmentInfo::bezier4 );
+        //        default_control_point(additional, hit_control_point);
+      }
+    }
+    else if (additional == get_points_count()-1) {
+      SegmentInfo& si = get_segment_info(additional-1);
+      if (si.get_segment_type() == PF::SegmentInfo::bezier3_l) {
+        set_segment_type( additional-1, PF::SegmentInfo::bezier4 );
+        //        default_control_point(additional-1, hit_control_point_end);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::line) {
+        set_segment_type( additional-1, PF::SegmentInfo::bezier3_r );
+        //        default_control_point(additional-1, hit_control_point);
+      }
+    }
+    else {*/
+      SegmentInfo& si = get_segment_info(additional);
+      if (si.get_segment_type() == PF::SegmentInfo::line) {
+        set_segment_type( additional, PF::SegmentInfo::bezier3_l );
+        //        default_control_point(additional, hit_control_point);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+        set_segment_type( additional, PF::SegmentInfo::bezier4 );
+        set_control_pt2( additional, get_control_pt1(additional) );
+        //        default_control_point(additional, hit_control_point);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier4) {
+        SegmentInfo& si_l = get_segment_info(additional-1);
+        if (si_l.get_segment_type() == PF::SegmentInfo::line) {
+          set_segment_type( additional-1, PF::SegmentInfo::bezier3_r );
+          //          default_control_point(additional-1, hit_control_point);
+        }
+        else if (si_l.get_segment_type() == PF::SegmentInfo::bezier3_l) {
+          set_segment_type( additional-1, PF::SegmentInfo::bezier4 );
+          //          default_control_point(additional-1, hit_control_point_end);
+        }
+      }
+//    }
+  }
+}
+
+void PF::Polygon::remove_point(int _n)
+{
+  const int n = circ_idx(_n,get_points_count());
+  
+  if (get_segments_count() > get_min_segments()) {
+    PF::Shape::remove_point(n);
+    
+    s_info.erase(s_info.begin()+n);
+  }
+}
+
+void PF::Polygon::remove_point(int hit_t, int additional)
+{
+  if (hit_t == PF::Shape::hit_node) {
+    remove_point(additional);
+  }
+  else if (hit_t == PF::Shape::hit_control_point_end) {
+    SegmentInfo& si = get_segment_info(additional);
+    if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+      std::cout<<"PF::Polygon::remove_point(): hit_control_point_end: additional: "<<additional<<std::endl;  
+      si.set_segment_type( PF::SegmentInfo::bezier3_l );
+    }
+  }
+  else if (hit_t == PF::Shape::hit_control_point) {
+    SegmentInfo& si = get_segment_info(additional);
+    if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+      std::cout<<"PF::Polygon::remove_point(): hit_control_point bezier4: additional: "<<additional<<std::endl;  
+      si.set_control_pt1( si.get_control_pt2() );
+      si.set_segment_type( PF::SegmentInfo::bezier3_r );
+    }
+    else if (si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+      std::cout<<"PF::Polygon::remove_point(): hit_control_point bezier3_l/r: additional: "<<additional<<std::endl;  
+      si.set_segment_type( PF::SegmentInfo::line );
+    }
+  }
+}
+
+void PF::Polygon::get_segment(int n, Point& pt1, Point& pt2)
+{
+  pt1 = get_point(n);
+  pt2 = get_point(n+1);
+}
+
+void PF::Polygon::get_segment(int n, Point& pt1, Point& pt2, SegmentInfo& si)
+{
+  get_segment(n, pt1, pt2);
+  si = get_segment_info(n);
+}
+
+void PF::Polygon::expand_falloff(int n)
+{
+  set_falloff(get_falloff()+n);
+}
+
+void PF::Polygon::offset_point(int _n, int x, int y)
+{
+  const int n = circ_idx(_n,get_points_count());
+  
+  PF::Shape::offset_point(n, x, y);
+  
+  if (get_segment_info(n).get_segment_type() == PF::SegmentInfo::bezier3_l || get_segment_info(n).get_segment_type() == PF::SegmentInfo::bezier4)
+    get_segment_info(n).offset_control_pt1(x, y);
+  if (get_segment_info(n-1).get_segment_type() == PF::SegmentInfo::bezier3_r)
+    get_segment_info(n-1).offset_control_pt1(x, y);
+  else if (get_segment_info(n-1).get_segment_type() == PF::SegmentInfo::bezier4)
+    get_segment_info(n-1).offset_control_pt2(x, y);
+}
+
+void PF::Polygon::synch_control_pt1(int n, Point& pt, Point& anchor)
+{
+  Point synch(anchor);
+  synch.offset(anchor.x-pt.x, anchor.y-pt.y);
+  set_control_pt1(n, synch);
+}
+
+void PF::Polygon::synch_control_pt2(int n, Point& pt, Point& anchor)
+{
+  Point synch(anchor);
+  synch.offset(anchor.x-pt.x, anchor.y-pt.y);
+  set_control_pt2(n, synch);
+}
+
+void PF::Polygon::offset_control_pt1(int segment, Point& prev, Point& curr, int options)
+{
+  get_segment_info(segment).offset_control_pt1(prev, curr);
+
+  if (options != 0) {
+    int opt = 0;
+    int opt_n = -1;
+    Point anchor;
+
+    if (get_segment_type(segment) == PF::SegmentInfo::bezier3_l || get_segment_type(segment) == PF::SegmentInfo::bezier4) {
+      if (get_segment_type(segment-1) == PF::SegmentInfo::bezier4) {
+        opt = 2;
+        opt_n = segment-1;
+        anchor = get_point(segment);
+      }
+      else if (get_segment_type(segment-1) == PF::SegmentInfo::bezier3_r) {
+        opt = 1;
+        opt_n = segment-1;
+        anchor = get_point(segment);
+      }
+    }
+    else if (get_segment_type(segment) == PF::SegmentInfo::bezier3_r) {
+      if (get_segment_type(segment+1) == PF::SegmentInfo::bezier4) {
+        opt = 1;
+        opt_n = segment+1;
+        anchor = get_point(segment+1);
+      }
+      else if (get_segment_type(segment+1) == PF::SegmentInfo::bezier3_l) {
+        opt = 1;
+        opt_n = segment+1;
+        anchor = get_point(segment+1);
+      }
+    }
+
+    if (options == PF::SegmentInfo::in_sinch) {
+      if (opt == 1)
+        synch_control_pt1(opt_n, get_control_pt1(segment), anchor);
+      else if (opt == 2)
+        synch_control_pt2(opt_n, get_control_pt1(segment), anchor);
+    }
+    else if (options == PF::SegmentInfo::locked) {
+      if (opt == 1)
+        get_segment_info(opt_n).offset_control_pt1(prev, curr);
+      else if (opt == 2)
+        get_segment_info(opt_n).offset_control_pt2(prev, curr);
+    }
+  }
+}
+
+void PF::Polygon::offset_control_pt2(int segment, Point& prev, Point& curr, int options)
+{
+  get_segment_info(segment).offset_control_pt2(prev, curr);
+  
+  if (options != 0) {
+    int opt = 0;
+    int opt_n = -1;
+    Point anchor;
+
+    if (get_segment_type(segment+1) == PF::SegmentInfo::bezier3_l || get_segment_type(segment+1) == PF::SegmentInfo::bezier4) {
+      opt = 1;
+      opt_n = segment+1;
+      anchor = get_point(segment+1);
+    }
+    
+    if (options == PF::SegmentInfo::in_sinch) {
+      if (opt == 1)
+        synch_control_pt1(opt_n, get_control_pt2(segment), anchor);
+      else if (opt == 2)
+        synch_control_pt2(opt_n, get_control_pt2(segment), anchor);
+    }
+    else if (options == PF::SegmentInfo::locked) {
+      if (opt == 1)
+        get_segment_info(opt_n).offset_control_pt1(prev, curr);
+      else if (opt == 2)
+        get_segment_info(opt_n).offset_control_pt2(prev, curr);
+    }
+  }
+  
+}
+
+void PF::Polygon::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source, int options)
+{
+  switch (hit_t)
+  {
+  case PF::Shape::hit_control_point:
+    offset_control_pt1(additional, prev, curr, options);
+    break;
+  case PF::Shape::hit_control_point_end:
+    offset_control_pt2(additional, prev, curr, options);
+    break;
+  default:
+    PF::Shape::offset(hit_t, prev, curr, additional, lock_source, options);
+    break;
+  }
+}
+
+bool PF::Polygon::point_in_polygon(Point& pt)
+{
+  std::vector<Point> points;
+  inter_segments(points);
+  return pt.in_polygon(points);
+}
+
+int PF::Polygon::hit_test(Point& pt, int& additional)
+{
+  int hit_t = hit_none;
+  
+  // check control points
+  for ( int i = 0; i < get_segments_count(); i++ ) {
+    SegmentInfo& si = get_segment_info(i);
+    
+    if ( si.get_segment_type() != PF::SegmentInfo::line ) {
+      if ( hit_test_node(pt, si.get_control_pt1()) ) {
+        additional = i;
+        return hit_control_point;
+      }
+    }
+    if ( si.get_segment_type() == PF::SegmentInfo::bezier4 ) {
+      if ( hit_test_node(pt, si.get_control_pt2()) ) {
+        additional = i;
+        return hit_control_point_end;
+      }
+    }
+  }
+
+  // check the nodes
+  Point pt1, pt2;
+  const int delta2 = (get_pen_size()+hit_test_delta)*(get_pen_size()+hit_test_delta);
+
+  for ( int i = 0; i < get_segments_count(); i++ ) {
+    get_segment(i, pt1, pt2);
+    
+    if ( hit_test_node(pt, pt1) ) {
+      additional = i;
+      return hit_node;
+    }
+    if ( hit_test_node(pt, pt2) ) {
+      additional = i+1;
+      return hit_node;
+    }
+  }
+    
+  // check the segments
+  SegmentInfo si;
+  
+  for ( int i = 0; i < get_segments_count(); i++ ) {
+    get_segment(i, pt1, pt2, si);
+    
+    if ( si.get_segment_type() == PF::SegmentInfo::line ) {
+      const float dist2 = pt.distance2segment2(pt1, pt2);
+      if (dist2 <= delta2) {
+        additional = i;
+        return hit_segment;
+      }
+    }
+    else if ( si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier3_r ) {
+      if (pt.in_bezier3(pt1, pt2, si.get_control_pt1(), delta2)) {
+        additional = i;
+        return hit_segment;
+      }
+    }
+    else if ( si.get_segment_type() == PF::SegmentInfo::bezier4 ) {
+      if (pt.in_bezier4(pt1, pt2, si.get_control_pt1(), si.get_control_pt2(), delta2)) {
+        additional = i;
+        return hit_segment;
+      }
+    }
+  }
+    
+  // check shape
+  if ( hit_t == hit_none ) {
+    if (point_in_polygon(pt)) {
+      return hit_shape;
+    }
+  }
+  
+  // check the source
+  if ( get_has_source() ) {
+    Polygon shape = *this;
+    shape.set_has_source(false);
+    shape.offset(get_source_point());
+    hit_t = shape.hit_test(pt, additional);
+    if ( hit_t != hit_none) hit_t = hit_source;
+  }
+
+  return hit_t;
+}
+
+void PF::Polygon::get_rect(VipsRect* rc)
+{
+  rc->left = rc->top = INT_MAX;
+  rc->width = rc->height = INT_MIN;
+  
+  if (get_points_count() > 0) {
+    for (int i = 0; i < get_points_count(); i++) {
+      rc->left = std::min(rc->left, get_point(i).x);
+      rc->top = std::min(rc->top, get_point(i).y);
+      rc->width = std::max(rc->width, get_point(i).x);
+      rc->height = std::max(rc->height, get_point(i).y);
+    }
+  
+    for (int i = 0; i < get_segments_count(); i++) {
+      SegmentInfo& si = get_segment_info(i);
+      if (si.get_segment_type() != PF::SegmentInfo::line) {
+        rc->left = std::min(rc->left, si.get_control_pt1().x);
+        rc->top = std::min(rc->top, si.get_control_pt1().y);
+        rc->width = std::max(rc->width, si.get_control_pt1().x);
+        rc->height = std::max(rc->height, si.get_control_pt1().y);
+      }
+      if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+        rc->left = std::min(rc->left, si.get_control_pt2().x);
+        rc->top = std::min(rc->top, si.get_control_pt2().y);
+        rc->width = std::max(rc->width, si.get_control_pt2().x);
+        rc->height = std::max(rc->height, si.get_control_pt2().y);
+      }
+    }
+  
+    rc->width = rc->width-rc->left+1;
+    rc->height = rc->height-rc->top+1;
+  }
+  
+  rc->left -= get_pen_size();
+  rc->top -= get_pen_size();
+  rc->width += get_pen_size()*2;
+  rc->height += get_pen_size()*2;
+  
+}
+
+void PF::Polygon::get_falloff_rect(VipsRect* rc)
+{
+  get_rect(rc);
+  
+  rc->left -= get_falloff();
+  rc->top -= get_falloff();
+  rc->width += get_falloff()*2;
+  rc->height += get_falloff()*2;
+  
+}
+
+void PF::Polygon::build_mask(SplineCurve& scurve)
+{
+  // free mask if already exists
+  if (mask != NULL) {
+    free(mask);
+    mask = NULL;
+  }
+ 
+  // get bounding rect
+  VipsRect rc;
+  get_mask_rect(&rc);
+
+  // nothing to return
+  if (rc.width < 1 || rc.height < 1) return;
+  
+  // alloc mask
+  mask = (float*)malloc(rc.width * rc.height * sizeof(float));
+  memset(mask, 0, rc.width * rc.height * sizeof(float));
+
+  // populate the buffer
+  std::vector<Point> points;
+  
+  inter_segments(points);
+  fill_polygon(points, mask, rc);
+  
+}
+
+// -----------------------------------
+// Line
+// -----------------------------------
+
+void PF::Line::offset_control_pt1(int segment, Point& prev, Point& curr, int options)
+{
+  if (segment == 0) {
+    get_segment_info(segment).offset_control_pt1(prev, curr);
+  }
+/*  else if (segment == get_segment_count()-1) {
+    get_segment_info(segment).offset_control_pt1(prev, curr);
+  }*/
+  else {
+    PF::Polygon::offset_control_pt1(segment, prev, curr, options);
+  }
+  
+/*  get_segment_info(segment).offset_control_pt1(prev, curr);
+
+  if (options != 0) {
+    int opt = 0;
+    int opt_n = -1;
+    Point anchor;
+
+    if (get_segment_type(segment) == PF::SegmentInfo::bezier3_l || get_segment_type(segment) == PF::SegmentInfo::bezier4) {
+      if (get_segment_type(segment-1) == PF::SegmentInfo::bezier4) {
+        opt = 2;
+        opt_n = segment-1;
+        anchor = get_point(segment);
+      }
+      else if (get_segment_type(segment-1) == PF::SegmentInfo::bezier3_r) {
+        opt = 1;
+        opt_n = segment-1;
+        anchor = get_point(segment);
+      }
+    }
+    else if (get_segment_type(segment) == PF::SegmentInfo::bezier3_r) {
+      if (get_segment_type(segment+1) == PF::SegmentInfo::bezier4) {
+        opt = 1;
+        opt_n = segment+1;
+        anchor = get_point(segment+1);
+      }
+      else if (get_segment_type(segment+1) == PF::SegmentInfo::bezier3_l) {
+        opt = 1;
+        opt_n = segment+1;
+        anchor = get_point(segment+1);
+      }
+    }
+
+    if (options == PF::SegmentInfo::in_sinch) {
+      if (opt == 1)
+        synch_control_pt1(opt_n, get_control_pt1(segment), anchor);
+      else if (opt == 2)
+        synch_control_pt2(opt_n, get_control_pt1(segment), anchor);
+    }
+    else if (options == PF::SegmentInfo::locked) {
+      if (opt == 1)
+        get_segment_info(opt_n).offset_control_pt1(prev, curr);
+      else if (opt == 2)
+        get_segment_info(opt_n).offset_control_pt2(prev, curr);
+    }
+  }*/
+}
+
+void PF::Line::offset_control_pt2(int segment, Point& prev, Point& curr, int options)
+{
+  if (segment == get_segments_count()-1) {
+    get_segment_info(segment).offset_control_pt2(prev, curr);
+  }
+  else {
+    PF::Polygon::offset_control_pt2(segment, prev, curr, options);
+  }
+  
+/*  get_segment_info(segment).offset_control_pt2(prev, curr);
+  
+  if (options != 0) {
+    int opt = 0;
+    int opt_n = -1;
+    Point anchor;
+
+    if (get_segment_type(segment+1) == PF::SegmentInfo::bezier3_l || get_segment_type(segment+1) == PF::SegmentInfo::bezier4) {
+      opt = 1;
+      opt_n = segment+1;
+      anchor = get_point(segment+1);
+    }
+    
+    if (options == PF::SegmentInfo::in_sinch) {
+      if (opt == 1)
+        synch_control_pt1(opt_n, get_control_pt2(segment), anchor);
+      else if (opt == 2)
+        synch_control_pt2(opt_n, get_control_pt2(segment), anchor);
+    }
+    else if (options == PF::SegmentInfo::locked) {
+      if (opt == 1)
+        get_segment_info(opt_n).offset_control_pt1(prev, curr);
+      else if (opt == 2)
+        get_segment_info(opt_n).offset_control_pt2(prev, curr);
+    }
+  }
+  */
+}
+
+void PF::Line::offset_point(int n, int x, int y)
+{
+  if (n == 0) {
+    PF::Shape::offset_point(n, x, y);
+    
+    if (get_segment_info(n).get_segment_type() == PF::SegmentInfo::bezier3_l || get_segment_info(n).get_segment_type() == PF::SegmentInfo::bezier4)
+      get_segment_info(n).offset_control_pt1(x, y);
+  }
+  else if (n == get_points_count()-1) {
+    PF::Shape::offset_point(n, x, y);
+    
+    if (get_segment_info(n-1).get_segment_type() == PF::SegmentInfo::bezier3_r)
+      get_segment_info(n-1).offset_control_pt1(x, y);
+    else if (get_segment_info(n-1).get_segment_type() == PF::SegmentInfo::bezier4)
+      get_segment_info(n-1).offset_control_pt2(x, y);
+  }
+  else {
+    PF::Polygon::offset_point(n, x, y);
+  }
+}
+/*
+int PF::Line::hit_test(Point& pt, int& additional)
+{
+  int hit_t = hit_none;
+  
+  // check control points
+  for ( int i = 0; i < get_segments_count(); i++ ) {
+    SegmentInfo& si = get_segment_info(i);
+    
+    if ( si.get_segment_type() != PF::SegmentInfo::line ) {
+      if ( hit_test_node(pt, si.get_control_pt1()) ) {
+        additional = i;
+        return hit_control_point;
+      }
+    }
+    if ( si.get_segment_type() == PF::SegmentInfo::bezier4 ) {
+      if ( hit_test_node(pt, si.get_control_pt2()) ) {
+        additional = i;
+        return hit_control_point_end;
+      }
+    }
+  }
+
+  // check the nodes
+  Point pt1, pt2;
+  const int delta2 = (get_size()+hit_test_delta)*(get_size()+hit_test_delta);
+
+  for ( int i = 0; i < get_segments_count(); i++ ) {
+    get_segment(i, pt1, pt2);
+    
+    if ( hit_test_node(pt, pt1) ) {
+      additional = i;
+      return hit_node;
+    }
+    if ( hit_test_node(pt, pt2) ) {
+      additional = i+1;
+      return hit_node;
+    }
+  }
+    
+  // check the segments
+  SegmentInfo si;
+  
+  for ( int i = 0; i < get_segments_count(); i++ ) {
+    get_segment(i, pt1, pt2, si);
+    
+    if ( si.get_segment_type() == PF::SegmentInfo::line ) {
+      const float dist2 = pt.distance2segment2(pt1, pt2);
+      if (dist2 <= delta2) {
+        additional = i;
+        return hit_segment;
+      }
+    }
+    else if ( si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier3_r ) {
+      if (pt.in_bezier3(pt1, pt2, si.get_control_pt1(), delta2)) {
+        additional = i;
+        return hit_segment;
+      }
+    }
+    else if ( si.get_segment_type() == PF::SegmentInfo::bezier4 ) {
+      if (pt.in_bezier4(pt1, pt2, si.get_control_pt1(), si.get_control_pt2(), delta2)) {
+        additional = i;
+        return hit_segment;
+      }
+    }
+  }
+    
+  // check shape
+  if ( hit_t == hit_none ) {
+    if (point_in_polygon(pt)) {
+      return hit_shape;
+    }
+  }
+  
+  // check the source
+  if ( get_has_source() ) {
+    Polygon shape = *this;
+    shape.set_has_source(false);
+    shape.offset(get_source_point());
+    hit_t = shape.hit_test(pt, additional);
+    if ( hit_t != hit_none) hit_t = hit_source;
+  }
+
+  return hit_t;
 }
 */
+
+void PF::Line::build_mask(SplineCurve& scurve)
+{
+//  std::cout<<"PF::Line::build_mask()"<<std::endl;
+  
+  // free mask if already exists
+  if (mask != NULL) {
+    free(mask);
+    mask = NULL;
+  }
+ 
+  // if no falloff there's no point in returning a mask
+  if (get_falloff()+get_pen_size() <= 0) return;
+  
+  // get bounding rect
+  VipsRect rc;
+  get_mask_rect(&rc);
+
+  // nothing to return
+  if (rc.width < 1 || rc.height < 1) return;
+  
+  // save offset
+  Point pt_offset(-rc.left, -rc.top);
+  
+  // offset to (0, 0)
+//  rc.left = rc.top = 0;
+  
+  // alloc mask
+  mask = (float*)malloc(rc.width * rc.height * sizeof(float));
+  memset(mask, 0, rc.width * rc.height * sizeof(float));
+
+  // populate the buffer
+  Point pt;
+  Point pt1;
+  Point pt2;
+  VipsRect rcs;
+  const float borderf2 = (get_pen_size()+get_falloff()) * (get_pen_size()+get_falloff()); // square distance to the border (falloff)
+  const float border2 = get_pen_size() * get_pen_size(); // square distance to the border (shape)
+  std::vector<Point> points;
+  
+  inter_segments(points);
+//  PF::Line::fill_polygon(points, mask, rc);
+  
+  // go through all segments
+  for (int i=1; i < points.size(); i++) {
+    pt1 = points[i-1];
+    pt1.offset(pt_offset);
+    pt2 = points[i];
+    pt2.offset(pt_offset);
+
+    // get segment bounding rect
+    get_segment_bounding_rect(pt1, pt2, get_pen_size()+get_falloff(), &rcs);
+       
+    // get the falloff for each point
+    for(int y = rcs.top; y <  rcs.top+rcs.height; y++) {
+      float* pmask = mask + y * rc.width;
+      for(int x = rcs.left; x < rcs.left+rcs.width; x++) {
+        pt.set(x, y);
+        
+        // square distance to the segment
+        const float dist2 = pt.distance2segment2(pt1, pt2);
+        if (dist2 < border2) {
+          pmask[x] = std::max(pmask[x], get_opacity());
+        }
+        else if (dist2 < borderf2) {
+          const float f = (borderf2 - dist2) / (borderf2-border2);
+          const float f2 = f * f * get_opacity();
+          const float f2s = scurve.get_value(f2);
+          pmask[x] = std::max(pmask[x], f2s);
+        }
+      }
+    }
+  }
+
+}
+
+//-----------------------------------------------------------------
+//-----------------------------------------------------------------
+#if 0
+
+void PF::Line::scale(int scale)
+{
+  PF::Shape::scale(scale);
+  
+  for (int i = 0; i < get_segments_count(); i++) {
+    get_segment_info(i).scale(scale);
+  }
+
+}
+
+void PF::Line::fill_polygon(std::vector<Point>& points, float* buffer, VipsRect& rc)
+{
+  int  nodes, /*nodeX[MAX_POLY_CORNERS],*/ pixelX, pixelY, i, j, swap ;
+  int polyCorners = points.size();
+  int* nodeX = (int*)malloc(polyCorners * sizeof(int));
+  
+/*  int IMAGE_TOP = rc_s.top-rc.top;
+  int IMAGE_LEFT = rc_s.left-rc.left;
+  int IMAGE_BOT = IMAGE_TOP + rc_s.height;
+  int IMAGE_RIGHT = IMAGE_LEFT + rc_s.width;
+  */
+  int IMAGE_TOP = rc.top;
+  int IMAGE_LEFT = rc.left;
+  int IMAGE_BOT = IMAGE_TOP + rc.height;
+  int IMAGE_RIGHT = IMAGE_LEFT + rc.width;
+  
+  
+//  float* polyY = (float*)malloc(polyCorners * sizeof(float));
+  
+  //  Loop through the rows of the image.
+  for (pixelY=IMAGE_TOP; pixelY<IMAGE_BOT; pixelY++) {
+
+    //  Build a list of nodes.
+    nodes=0;
+    j=polyCorners-1;
+    for (i=0; i<polyCorners; i++) {
+      if ( (points[i].y<(double) pixelY && points[j].y>=(double) pixelY)
+      ||  (points[j].y<(double) pixelY && points[i].y>=(double) pixelY) ) {
+        nodeX[nodes++]=(int) ( points[i].x + ((float)(pixelY-points[i].y) / (float)(points[j].y-points[i].y)) 
+        * (float)(points[j].x-points[i].x) ); 
+      }
+      j=i; 
+    }
+
+    //  Sort the nodes, via a simple “Bubble” sort.
+    i=0;
+    while (i<nodes-1) {
+      if (nodeX[i]>nodeX[i+1]) {
+        swap=nodeX[i]; nodeX[i]=nodeX[i+1]; nodeX[i+1]=swap; if (i) i--; 
+      }
+      else {
+        i++; 
+      }
+    }
+
+    //  Fill the pixels between node pairs.
+    for (i=0; i<nodes; i+=2) {
+      if   (nodeX[i  ]>=IMAGE_RIGHT) break;
+      if   (nodeX[i+1]> IMAGE_LEFT ) {
+        if (nodeX[i  ]< IMAGE_LEFT ) nodeX[i  ]=IMAGE_LEFT ;
+        if (nodeX[i+1]> IMAGE_RIGHT) nodeX[i+1]=IMAGE_RIGHT;
+        for (pixelX=nodeX[i]; pixelX<nodeX[i+1]; pixelX++) {
+//          fillPixel(pixelX,pixelY);
+          buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = 1.f;
+        }
+      }
+    }
+  }
+
+  if (nodeX) free(nodeX);
+}
+
+// returns a vector with bezier curve points
+void PF::Line::inter_bezier3(Point& anchor1, Point& anchor2, Point& control, std::vector<Point>& points)
+{
+  Point pt1, pt2;
+  float step = 1.f/100.f;
+  
+  pt1 = anchor1;
+  points.push_back(pt1);
+  
+  //This loops draws each step of the curve
+  for (float t = 0.f; t <= 1.f; t += step) {
+    pt2.set( (1.f - t) * (1.f - t) * (float)anchor1.x + 2.f * (1.f - t) * t * (float)control.x + t * t * (float)anchor2.x, 
+             (1.f - t) * (1.f - t) * (float)anchor1.y + 2.f * (1.f - t) * t * (float)control.y + t * t * (float)anchor2.y );
+    points.push_back(pt2);
+    
+    pt1 = pt2;
+  } 
+  
+  //As a final step, make sure the curve ends on the second anchor
+//  points.push_back(anchor2);
+  
+}
+
+void PF::Line::inter_bezier4(Point& anchor1, Point& anchor2, Point& control1, Point& control2, std::vector<Point>& points)
+{
+  Point pt1, pt2;
+  float step = 1.f/100.f;
+  
+  pt1 = anchor1;
+  points.push_back(pt1);
+
+  //This loops draws each step of the curve
+  for (float u = 0.f; u <= 1.f; u += step) { 
+    pt2.set( powf(u,3)*(anchor2.get_x()+3*(control1.get_x()-control2.get_x())-anchor1.get_x())+3*powf(u,2)*(anchor1.get_x()-2*control1.get_x()+control2.get_x())+3*u*(control1.get_x()-anchor1.get_x())+anchor1.get_x(),
+    powf(u,3)*(anchor2.get_y()+3*(control1.get_y()-control2.get_y())-anchor1.get_y())+3*powf(u,2)*(anchor1.get_y()-2*control1.get_y()+control2.get_y())+3*u*(control1.get_y()-anchor1.get_y())+anchor1.get_y() );
+    points.push_back(pt2);
+
+    pt1 = pt2;
+  } 
+  
+  //As a final step, make sure the curve ends on the second anchor
+//  points.push_back(anchor2);
+  
+}
+
+void PF::Line::polygon_from_line(Point& pt1, Point& pt2, std::vector<Point>& points1, std::vector<Point>& points2)
+{
+  Point a, b, c, d;
+  const int amount = get_size();
+  
+  if (pt1 != pt2) {
+  get_expanded_rec_from_line(pt1, pt2, amount, a, b, c, d);
+  
+  points1.push_back(a);
+  points1.push_back(b);
+  points2.push_back(d);
+  points2.push_back(c);
+  }
+  else {
+//    points1.push_back(pt1);
+//    points2.push_back(pt1);
+  }
+  
+}
+
+void PF::Line::polygon_from_bezier3(Point& anchor1, Point& anchor2, Point& control, std::vector<Point>& points1, std::vector<Point>& points2)
+{
+  Point a, b, c, d, pt1, pt2;
+  const int amount = get_size();
+  std::vector<Point> points;
+  
+  inter_bezier3(anchor1, anchor2, control, points);
+  
+  pt1 = points[0];
+  for (int i = 1; i < points.size(); i++) {
+    pt2 = points[i];
+    
+    if (pt1 != pt2) {
+    get_expanded_rec_from_line(pt1, pt2, amount, a, b, c, d);
+    
+    points1.push_back(a);
+    points1.push_back(b);
+    points2.push_back(d);
+    points2.push_back(c);
+    }
+    else {
+//      points1.push_back(pt1);
+//      points2.push_back(pt1);
+    }
+    
+    pt1 = pt2;
+  }
+  
+}
+
+void PF::Line::polygon_from_bezier4(Point& anchor1, Point& anchor2, Point& control1, Point& control2, std::vector<Point>& points1, std::vector<Point>& points2)
+{
+  Point a, b, c, d, pt1, pt2;
+  const int amount = get_size();
+  std::vector<Point> points;
+  
+  inter_bezier4(anchor1, anchor2, control1, control2, points);
+  
+  pt1 = points[0];
+  for (int i = 1; i < points.size(); i++) {
+    pt2 = points[i];
+    
+    if (pt1 != pt2) {
+    get_expanded_rec_from_line(pt1, pt2, amount, a, b, c, d);
+    
+    points1.push_back(a);
+    points1.push_back(b);
+    points2.push_back(d);
+    points2.push_back(c);
+    }
+    else {
+//      points1.push_back(pt1);
+//      points2.push_back(pt1);
+    }
+    
+    pt1 = pt2;
+  }
+  
+}
+
+// return a vector with a polygon representing the segments
+void PF::Line::polygon_from_segment(std::vector<Point>& points)
+{
+  std::cout<<"PF::Line::polygon_from_segment()"<<std::endl;
+  
+  std::vector<Point> points_l;
+  std::vector<Point> points_r;
+  
+  if (get_points_count() > 1) {
+    SegmentInfo si;
+    Point pt1, pt2, pt3;
+    Point a1, b1, c1, d1;
+    Point a2, b2;
+    const int amount = get_size();
+  
+    std::cout<<"PF::Line::polygon_from_segment() 1"<<std::endl;
+    
+    // get an array of points for all the segments
+    for (int i = 0; i < get_segments_count(); i++) {
+      get_segment(i, pt1, pt2, si);
+      
+      if (si.get_segment_type() == PF::SegmentInfo::line) {
+        points_r.push_back(pt1);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+        inter_bezier3(pt1, pt2, si.get_control_pt1(), points_r);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+        inter_bezier4(pt1, pt2, si.get_control_pt1(), si.get_control_pt2(), points_r);
+      }      
+    }
+    points_r.push_back(pt2);
+    
+    std::cout<<"PF::Line::polygon_from_segment() 2"<<std::endl;
+    
+    // make the corners
+    pt1 = points_r[0];
+    pt2 = points_r[1];
+    get_pt1_proyected_from_segment(pt1, pt2, amount, a1, b1);
+    points.push_back(a1);
+    points_l.push_back(b1);
+    for (int i = 2; i < points_r.size(); i++) {
+      pt3 = points_r[i];
+      
+      if (pt1 != pt2 && pt2 != pt3) {
+        get_pt2_proyected_from_segment(pt1, pt2, amount, a2, b2);
+        get_pt1_proyected_from_segment(pt2, pt3, amount, c1, d1);
+//        std::swap(a2.x, c1.x); std::swap(a2.y, c1.y);
+//        std::swap(b2.x, d1.x); std::swap(b2.y, d1.y);
+        get_intersect_point(a1, a2, c1, c1);
+        get_intersect_point(b1, b2, d1, d1);
+        
+        a1 = c1;
+        b1 = d1;
+        
+        points.push_back(a1);
+        points_l.push_back(b1);
+      }
+      
+      pt1 = pt2;
+      pt2 = pt3;
+    }
+    get_pt2_proyected_from_segment(pt1, pt2, amount, a1, b1);
+    points.push_back(a1);
+    points_l.push_back(b1);
+  }
+  
+  std::cout<<"PF::Line::polygon_from_segment() 3"<<std::endl;
+  
+  for (int i = points_l.size()-1; i >= 0; i--) points.push_back(points_l[i]);
+  
+  std::cout<<"PF::Line::polygon_from_segment() 4"<<std::endl;
+}
+
+/*
+void PF::Line::polygon_from_segment(std::vector<Point>& points)
+{
+  std::vector<Point> points_r;
+  
+  if (get_points_count() > 1) {
+    SegmentInfo si;
+    Point pt1, pt2;
+    
+    for (int i = 0; i < get_segments_count(); i++) {
+      get_segment(i, pt1, pt2, si);
+      
+      if (si.get_segment_type() == PF::SegmentInfo::line) {
+        polygon_from_line(pt1, pt2, points, points_r);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+        polygon_from_bezier3(pt1, pt2, si.get_control_pt1(), points, points_r);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+        polygon_from_bezier4(pt1, pt2, si.get_control_pt1(), si.get_control_pt2(), points, points_r);
+      }      
+    }
+  }
+  
+  for (int i = points_r.size()-1; i >= 0; i--) points.push_back(points_r[i]);
+
+}
+*/
+// return a vector with all segments points
+void PF::Line::inter_segments(std::vector<Point>& points)
+{
+  if (get_points_count() > 1) {
+    Point pt1, pt2;
+    SegmentInfo si;
+    
+    for (int i = 0; i < get_points_count(); i++) {
+      get_segment(i, pt1, pt2, si);
+      
+      if (si.get_segment_type() == PF::SegmentInfo::line) {
+        points.push_back(pt1);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+        inter_bezier3(pt1, pt2, si.get_control_pt1(), points);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+        inter_bezier4(pt1, pt2, si.get_control_pt1(), si.get_control_pt2(), points);
+      }
+    }
+    
+    points.push_back(pt2);
+  }
+}
+
+void PF::Line::default_control_point(int segment, int hit_t)
+{  
+  Point pt1, pt2, center, ptc;
+  SegmentInfo& si = get_segment_info(segment);
+  SegmentInfo si_adj;
+  int segment_adj = -1;
+  
+  get_segment(segment, pt1, pt2);
+  get_center(center);
+
+  if ( (segment > 0 || hit_t == PF::Shape::hit_control_point_end) && (segment < get_segments_count()-1 || hit_t == PF::Shape::hit_control_point) ) {
+    if (hit_t == PF::Shape::hit_control_point) {
+      if (si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+        si_adj = get_segment_info(segment+1);
+        if (si_adj.get_segment_type() == PF::SegmentInfo::bezier3_l || si_adj.get_segment_type() == PF::SegmentInfo::bezier4) {
+          ptc.set( pt2.x-(si_adj.get_control_pt1().x-pt2.x), pt2.y+(pt2.y-si_adj.get_control_pt1().y) );
+          segment_adj = segment-1;
+        }
+      }
+      else {
+        si_adj = get_segment_info(segment-1);
+        if (si_adj.get_segment_type() == PF::SegmentInfo::bezier4) {
+          ptc.set( pt1.x-(si_adj.get_control_pt2().x-pt1.x), pt1.y+(pt1.y-si_adj.get_control_pt2().y) );
+          segment_adj = segment-1;
+        }
+      }
+    }
+    else {
+      si_adj = get_segment_info(segment+1);
+      if (si_adj.get_segment_type() != PF::SegmentInfo::line) {
+        if (si.get_segment_type() == PF::SegmentInfo::bezier3_r)
+          ptc.set( pt1.x-(si_adj.get_control_pt1().x-pt1.x), pt1.y+(pt1.y-si_adj.get_control_pt1().y) );
+        else
+          ptc.set( pt2.x-(si_adj.get_control_pt1().x-pt2.x), pt2.y+(pt2.y-si_adj.get_control_pt1().y) );
+        segment_adj = segment+1;
+      }
+    }
+  }
+  
+  if ( segment_adj < 0 ) {
+    ptc.set( std::min(pt1.x, pt2.x) + abs(pt1.x - pt2.x)/2, std::min(pt1.y, pt2.y) + abs(pt1.y - pt2.y)/2 );
+    int amount = -50;
+    if (ptc != pt2)
+      get_pt_proyected_from_segment(ptc, pt2, amount, ptc);
+    else
+      ptc.offset(amount, amount);
+  }
+  
+  if (hit_t == PF::Shape::hit_control_point) {
+    set_control_pt1(segment, ptc);
+  }
+  else if (hit_t == PF::Shape::hit_control_point_end) {
+    set_control_pt2(segment, ptc);
+  }
+}
+
+void PF::Line::add_point(Point pt)
+{
+  PF::Shape::add_point(pt);
+  
+  SegmentInfo si;
+  s_info.push_back(si);
+}
+
+void PF::Line::insert_point(Point& pt, int position)
+{
+  PF::Shape::insert_point(pt, position);
+  
+  SegmentInfo si;
+  
+  std::vector<SegmentInfo>::iterator it;
+  it = s_info.begin();
+  it = s_info.insert( it+position, si );
+}
+
+void PF::Line::insert_point(Point& pt, int hit_t, int additional)
+{
+  if (hit_t == PF::Shape::hit_segment) {
+    insert_point(pt, additional+1);
+  }
+  else if (hit_t == PF::Shape::hit_node) {
+    if (additional == 0) {
+      SegmentInfo& si = get_segment_info(additional);
+      if (si.get_segment_type() == PF::SegmentInfo::line) {
+        set_segment_type( additional, PF::SegmentInfo::bezier3_l );
+        default_control_point(additional, hit_control_point);
+      }
+      if (si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+        set_segment_type( additional, PF::SegmentInfo::bezier4 );
+        default_control_point(additional, hit_control_point);
+      }
+    }
+    else if (additional == get_points_count()-1) {
+      SegmentInfo& si = get_segment_info(additional-1);
+      if (si.get_segment_type() == PF::SegmentInfo::bezier3_l /*|| si.get_segment_type() == PF::SegmentInfo::bezier3_r*/) {
+        set_segment_type( additional-1, PF::SegmentInfo::bezier4 );
+        default_control_point(additional-1, hit_control_point_end);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::line) {
+        set_segment_type( additional-1, PF::SegmentInfo::bezier3_r );
+        default_control_point(additional-1, hit_control_point);
+      }
+    }
+    else {
+      SegmentInfo& si = get_segment_info(additional);
+      if (si.get_segment_type() == PF::SegmentInfo::line) {
+        set_segment_type( additional, PF::SegmentInfo::bezier3_l );
+        default_control_point(additional, hit_control_point);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+        set_segment_type( additional, PF::SegmentInfo::bezier4 );
+        set_control_pt2( additional, get_control_pt1(additional) );
+        default_control_point(additional, hit_control_point);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier4) {
+        SegmentInfo& si_l = get_segment_info(additional-1);
+        if (si_l.get_segment_type() == PF::SegmentInfo::line) {
+          set_segment_type( additional-1, PF::SegmentInfo::bezier3_r );
+          default_control_point(additional-1, hit_control_point);
+        }
+        else if (si_l.get_segment_type() == PF::SegmentInfo::bezier3_l) {
+          set_segment_type( additional-1, PF::SegmentInfo::bezier4 );
+          default_control_point(additional-1, hit_control_point_end);
+        }
+    }
+    }
+  }
+}
+
+void PF::Line::remove_point(int n)
+{
+  if (get_segments_count() > 1) {
+    PF::Shape::remove_point(n);
+    
+    s_info.erase(s_info.begin()+n);
+  }
+}
+
+void PF::Line::remove_point(int hit_t, int additional)
+{
+  if (hit_t == PF::Shape::hit_node) {
+    remove_point(additional);
+  }
+  else if (hit_t == PF::Shape::hit_control_point_end) {
+    SegmentInfo& si = get_segment_info(additional);
+    if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+      si.set_segment_type( PF::SegmentInfo::bezier3_l );
+    }
+  }
+  else if (hit_t == PF::Shape::hit_control_point) {
+    SegmentInfo& si = get_segment_info(additional);
+    if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+      si.set_control_pt1( si.get_control_pt2() );
+      si.set_segment_type( PF::SegmentInfo::bezier3_r );
+    }
+    else if (si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+      si.set_segment_type( PF::SegmentInfo::line );
+    }
+  }
+}
+
+void PF::Line::get_segment(int n, Point& pt1, Point& pt2)
+{
+  pt1 = get_point(n);
+  pt2 = get_point(n+1);
+}
+
+void PF::Line::get_segment(int n, Point& pt1, Point& pt2, SegmentInfo& si)
+{
+  get_segment(n, pt1, pt2);
+  si = get_segment_info(n);
+}
+
+void PF::Line::expand_falloff(int n)
+{
+  set_falloff(get_falloff()+n);
+}
+
+void PF::Line::offset_point(int n, int x, int y)
+{
+  PF::Shape::offset_point(n, x, y);
+  
+  if (n < get_points_count()-1)
+    get_segment_info(n).offset_control_pt1(x, y);
+  if (n > 0)
+    get_segment_info(n-1).offset_control_pt2(x, y);
+}
+
+void PF::Line::synch_control_pt1(int n, Point& pt, Point& anchor)
+{
+  Point synch(anchor);
+  synch.offset(anchor.x-pt.x, anchor.y-pt.y);
+  set_control_pt1(n, synch);
+}
+
+void PF::Line::synch_control_pt2(int n, Point& pt, Point& anchor)
+{
+  Point synch(anchor);
+  synch.offset(anchor.x-pt.x, anchor.y-pt.y);
+  set_control_pt2(n, synch);
+}
+
+void PF::Line::offset_control_pt1(int segment, Point& prev, Point& curr, int options)
+{
+  get_segment_info(segment).offset_control_pt1(prev, curr);
+
+  if (options != 0) {
+    int opt = 0;
+    int opt_n = -1;
+    Point anchor;
+
+    if (segment == 0) {
+    }
+    else if (segment == get_segments_count()-1) {
+      if (get_segment_type(segment) == PF::SegmentInfo::bezier3_l || get_segment_type(segment) == PF::SegmentInfo::bezier4) {
+        if (get_segment_type(segment-1) == PF::SegmentInfo::bezier4) {
+          opt = 2;
+          opt_n = segment-1;
+          anchor = get_point(segment);
+        }
+        else if (get_segment_type(segment-1) == PF::SegmentInfo::bezier3_r) {
+          opt = 1;
+          opt_n = segment-1;
+          anchor = get_point(segment);
+        }
+      }
+    }
+    else {
+      if (get_segment_type(segment) == PF::SegmentInfo::bezier3_l || get_segment_type(segment) == PF::SegmentInfo::bezier4) {
+        if (get_segment_type(segment-1) == PF::SegmentInfo::bezier4) {
+          opt = 2;
+          opt_n = segment-1;
+          anchor = get_point(segment);
+        }
+        else if (get_segment_type(segment-1) == PF::SegmentInfo::bezier3_r) {
+          opt = 1;
+          opt_n = segment-1;
+          anchor = get_point(segment);
+        }
+      }
+      else if (get_segment_type(segment) == PF::SegmentInfo::bezier3_r) {
+        if (get_segment_type(segment+1) == PF::SegmentInfo::bezier4) {
+          opt = 1;
+          opt_n = segment+1;
+          anchor = get_point(segment+1);
+        }
+        else if (get_segment_type(segment+1) == PF::SegmentInfo::bezier3_l) {
+          opt = 1;
+          opt_n = segment+1;
+          anchor = get_point(segment+1);
+        }
+      }
+    }
+
+    if (options == PF::SegmentInfo::in_sinch) {
+      if (opt == 1)
+        synch_control_pt1(opt_n, get_control_pt1(segment), anchor);
+      else if (opt == 2)
+        synch_control_pt2(opt_n, get_control_pt1(segment), anchor);
+    }
+    else if (options == PF::SegmentInfo::locked) {
+      if (opt == 1)
+        get_segment_info(opt_n).offset_control_pt1(prev, curr);
+      else if (opt == 2)
+        get_segment_info(opt_n).offset_control_pt2(prev, curr);
+    }
+  }
+}
+
+void PF::Line::offset_control_pt2(int segment, Point& prev, Point& curr, int options)
+{
+  get_segment_info(segment).offset_control_pt2(prev, curr);
+  
+  if (options != 0) {
+    int opt = 0;
+    int opt_n = -1;
+    Point anchor;
+
+    if (segment < get_segments_count()-1) {
+      if (get_segment_type(segment+1) == PF::SegmentInfo::bezier3_l || get_segment_type(segment+1) == PF::SegmentInfo::bezier4) {
+        opt = 1;
+        opt_n = segment+1;
+        anchor = get_point(segment+1);
+      }
+    }
+    
+    if (options == PF::SegmentInfo::in_sinch) {
+      if (opt == 1)
+        synch_control_pt1(opt_n, get_control_pt2(segment), anchor);
+      else if (opt == 2)
+        synch_control_pt2(opt_n, get_control_pt2(segment), anchor);
+    }
+    else if (options == PF::SegmentInfo::locked) {
+      if (opt == 1)
+        get_segment_info(opt_n).offset_control_pt1(prev, curr);
+      else if (opt == 2)
+        get_segment_info(opt_n).offset_control_pt2(prev, curr);
+    }
+  }
+  
+}
+
+void PF::Line::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source, int options)
+{
+  switch (hit_t)
+  {
+  case PF::Shape::hit_control_point:
+    offset_control_pt1(additional, prev, curr, options);
+    break;
+  case PF::Shape::hit_control_point_end:
+    offset_control_pt2(additional, prev, curr, options);
+    break;
+  default:
+    PF::Shape::offset(hit_t, prev, curr, additional, lock_source, options);
+    break;
+  }
+}
+
+int PF::Line::hit_test(Point& pt, int& additional)
+{
+  int hit_t = hit_none;
+  
+  // check control points
+  for ( int i = 0; i < get_segments_count(); i++ ) {
+    SegmentInfo& si = get_segment_info(i);
+    
+    if ( si.get_segment_type() != PF::SegmentInfo::line ) {
+      if ( hit_test_node(pt, si.get_control_pt1()) ) {
+        additional = i;
+        return hit_control_point;
+      }
+    }
+    if ( si.get_segment_type() == PF::SegmentInfo::bezier4 ) {
+      if ( hit_test_node(pt, si.get_control_pt2()) ) {
+        additional = i;
+        return hit_control_point_end;
+      }
+    }
+  }
+
+  // check the nodes
+  Point pt1, pt2;
+  const int delta2 = (get_size()+hit_test_delta)*(get_size()+hit_test_delta);
+
+  for ( int i = 0; i < get_segments_count(); i++ ) {
+    get_segment(i, pt1, pt2);
+    
+    if ( hit_test_node(pt, pt1) ) {
+      additional = i;
+      return hit_node;
+    }
+    if ( hit_test_node(pt, pt2) ) {
+      additional = i+1;
+      return hit_node;
+    }
+  }
+    
+  // check the segments
+  SegmentInfo si;
+  
+  for ( int i = 0; i < get_segments_count(); i++ ) {
+    get_segment(i, pt1, pt2, si);
+    
+    if ( si.get_segment_type() == PF::SegmentInfo::line ) {
+      const float dist2 = pt.distance2segment2(pt1, pt2);
+      if (dist2 <= delta2) {
+        additional = i;
+        return hit_segment;
+      }
+    }
+    else if ( si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier3_r ) {
+      if (pt.in_bezier3(pt1, pt2, si.get_control_pt1(), delta2)) {
+        additional = i;
+        return hit_segment;
+      }
+    }
+    else if ( si.get_segment_type() == PF::SegmentInfo::bezier4 ) {
+      if (pt.in_bezier4(pt1, pt2, si.get_control_pt1(), si.get_control_pt2(), delta2)) {
+        additional = i;
+        return hit_segment;
+      }
+    }
+  }
+    
+  // check the source
+  if ( get_has_source() ) {
+    Line shape = *this;
+    shape.set_has_source(false);
+    shape.offset(get_source_point());
+    hit_t = shape.hit_test(pt, additional);
+    if ( hit_t != hit_none) hit_t = hit_source;
+  }
+
+  return hit_t;
+}
+
+void PF::Line::get_rect(VipsRect* rc)
+{
+  rc->left = rc->top = INT_MAX;
+  rc->width = rc->height = INT_MIN;
+  
+  if (get_points_count() > 0) {
+    for (int i = 0; i < get_points_count(); i++) {
+      rc->left = std::min(rc->left, get_point(i).x);
+      rc->top = std::min(rc->top, get_point(i).y);
+      rc->width = std::max(rc->width, get_point(i).x);
+      rc->height = std::max(rc->height, get_point(i).y);
+    }
+  
+    for (int i = 0; i < get_segments_count(); i++) {
+      SegmentInfo& si = get_segment_info(i);
+      if (si.get_segment_type() != PF::SegmentInfo::line) {
+        rc->left = std::min(rc->left, si.get_control_pt1().x);
+        rc->top = std::min(rc->top, si.get_control_pt1().y);
+        rc->width = std::max(rc->width, si.get_control_pt1().x);
+        rc->height = std::max(rc->height, si.get_control_pt1().y);
+      }
+      if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+        rc->left = std::min(rc->left, si.get_control_pt2().x);
+        rc->top = std::min(rc->top, si.get_control_pt2().y);
+        rc->width = std::max(rc->width, si.get_control_pt2().x);
+        rc->height = std::max(rc->height, si.get_control_pt2().y);
+      }
+    }
+  
+    rc->width = rc->width-rc->left+1;
+    rc->height = rc->height-rc->top+1;
+  }
+  
+  rc->left -= get_size();
+  rc->top -= get_size();
+  rc->width += get_size()*2;
+  rc->height += get_size()*2;
+  
+//  std::cout<<"PF::Line::get_rect(): rc->left: "<<rc->left<<" ,rc->top; "<<rc->top<<" ,rc->width; "<<rc->width<<" ,rc->height; "<<rc->height<<std::endl;
+}
+
+void PF::Line::get_falloff_rect(VipsRect* rc)
+{
+  get_rect(rc);
+  
+  rc->left -= get_falloff();
+  rc->top -= get_falloff();
+  rc->width += get_falloff()*2;
+  rc->height += get_falloff()*2;
+  
+//  std::cout<<"PF::Line::get_falloff_rect(): rc->left: "<<rc->left<<" ,rc->top; "<<rc->top<<" ,rc->width; "<<rc->width<<" ,rc->height; "<<rc->height<<std::endl;
+}
+
+void PF::Line::build_mask(SplineCurve& scurve)
+{
+//  std::cout<<"PF::Line::build_mask()"<<std::endl;
+  
+  // free mask if already exists
+  if (mask != NULL) {
+    free(mask);
+    mask = NULL;
+  }
+ 
+  // if no falloff there's no point in returning a mask
+  if (get_falloff()+get_size() <= 0) return;
+  
+  // get bounding rect
+  VipsRect rc;
+  get_falloff_rect(&rc);
+
+  // nothing to return
+  if (rc.width < 1 || rc.height < 1) return;
+  
+  // save offset
+  Point pt_offset(-rc.left, -rc.top);
+  
+  // offset to (0, 0)
+//  rc.left = rc.top = 0;
+  
+  // alloc mask
+  mask = (float*)malloc(rc.width * rc.height * sizeof(float));
+  memset(mask, 0, rc.width * rc.height * sizeof(float));
+
+  // populate the buffer
+  Point pt;
+  Point pt1;
+  Point pt2;
+  VipsRect rcs;
+  const float borderf2 = (get_size()+get_falloff()) * (get_size()+get_falloff()); // square distance to the border (falloff)
+  const float border2 = get_size() * get_size(); // square distance to the border (shape)
+  std::vector<Point> points;
+  
+  polygon_from_segment(points);
+//  PF::Line::fill_polygon(points, mask, rc);
+  
+  // go through all segments
+/*  for (int i=0; i < get_points_count()-1; i++) {
+    pt1 = get_point(i);
+    pt1.offset(pt_offset);
+    pt2 = get_point(i+1);
+    pt2.offset(pt_offset);
+
+    // get segment bounding rect
+    get_segment_bounding_rect(pt1, pt2, get_size()+get_falloff(), &rcs);
+       
+    // get the falloff for each point
+    for(int y = rcs.top; y <  rcs.top+rcs.height; y++) {
+      float* pmask = mask + y * rc.width;
+      for(int x = rcs.left; x < rcs.left+rcs.width; x++) {
+        pt.set(x, y);
+        
+        // square distance to the segment
+        const float dist2 = pt.distance2segment2(pt1, pt2);
+        if (dist2 < border2) {
+          pmask[x] = std::max(pmask[x], get_opacity());
+        }
+        else if (dist2 < borderf2) {
+          const float f = (borderf2 - dist2) / (borderf2-border2);
+          const float f2 = f * f * get_opacity();
+          const float f2s = scurve.get_value(f2);
+          pmask[x] = std::max(pmask[x], f2s);
+        }
+      }
+    }
+  }
+*/
+}
+
+
+#endif
+//----------------------------------------------------------------
+
 void PF::Shape::fill_falloff_rectangle(float* mask, VipsRect& rc, SplineCurve& scurve, Point& pt1, Point& pt2, Point& pt3, Point& pt4)
 {
   const int x_from = std::min(pt1.get_x(), pt4.get_x());
@@ -1905,203 +3475,78 @@ void PF::Shape::fill_falloff_paralelogram(float* mask, VipsRect& rc, SplineCurve
   fill_falloff_rectangle(mask, rc, scurve, pt1, pt2, pt3, pt4);
 }
 
-void PF::Polygon::build_mask(SplineCurve& scurve)
-{
-  if (mask != NULL) {
-    free(mask);
-    mask = NULL;
-  }
-  
-  // get bounding rect
-  VipsRect rc;
-  get_mask_rect(&rc);
-  
-  // nothing to return
-  if (rc.width <= 1 || rc.height <= 1) return;
-  
-  // alloc mask
-  mask = (float*)malloc(rc.width * rc.height * sizeof(float));
-  memset(mask, 0, rc.width * rc.height * sizeof(float));
-
-//  rc.top = rc.left = 0;
-  
-  VipsRect rc_s;
-  get_rect(&rc_s);
-  
-  fill_polygon(rc);
-  
-  Point pt1, pt2, pt3, pt4;
-  Point center;
-  get_center(center);
-  
-  for (int i = 0; i < get_points_count()-2; i++) {
-    get_falloff_point_absolute(i, center, pt1);
-    get_falloff_point_absolute(i+1, center, pt2);
-    pt3 = get_point(i+1);
-    pt4 = get_point(i);
-    
-    fill_falloff_paralelogram(mask, rc, scurve, pt1, pt2, pt3, pt4);
-  }
-  
-}
-
 // -----------------------------------
-// BPath
+// Rectangle
 // -----------------------------------
 
-void PF::BPath::add_point(Point pt) 
-{ 
-  Point pt1(50, 50);
-  Point pt2(-50, -50);
-  const int count = get_points_count();
-  if (count > 1) pt2.set(-get_control_point(0).get_x(), -get_control_point(0).get_y());
-  PF::Shape::add_point(pt); // anchor
-  PF::Shape::add_point(pt1); // control point
-  PF::Shape::add_point(pt2); // control point end
-}
-
-PF::Point& PF::BPath::get_control_point(int n) 
+void PF::Rectangle::offset(int x, int y)
 {
-  return PF::Shape::get_point((n*3) + 1); 
+  for (int i = 0; i < get_points_count(); i++) {
+    get_point(i).offset(x, y);
+  }
 }
 
-PF::Point& PF::BPath::get_control_point_end(int n) 
+void PF::Rectangle::offset_point(int n, int x, int y)
 {
-  return PF::Shape::get_point((n*3) + 2);
+  PF::Polygon::offset_point(n, x, y);
+  
+  if (n == 0) {
+    get_point(1).set(get_point(1).x, get_point(n).y);
+    get_point(3).set(get_point(n).x, get_point(3).y);
+  }
+  if (n == 1) {
+    get_point(0).set(get_point(0).x, get_point(n).y);
+    get_point(2).set(get_point(n).x, get_point(2).y);
+  }
+  if (n == 2) {
+    get_point(1).set(get_point(n).x, get_point(1).y);
+    get_point(3).set(get_point(3).x, get_point(n).y);
+  }
+  if (n == 3) {
+    get_point(0).set(get_point(n).x, get_point(0).y);
+    get_point(2).set(get_point(2).x, get_point(n).y);
+  }
 }
 
-PF::Point PF::BPath::get_control_point_absolute(int n)
-{
-  Point pt = get_point(n);
-  pt.offset(get_control_point(n));
-  return pt;
-}
-
-PF::Point PF::BPath::get_control_point_end_absolute(int n)
-{
-  Point pt;
-  if (n == get_points_count()-1)
-    pt = get_point(0);
-  else
-    pt = get_point(n+1);
-  pt.offset(get_control_point_end(n));
-  return pt;
-}
-
-void PF::BPath::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source)
+void PF::Rectangle::offset(int hit_t, Point& prev, Point& curr, int additional, bool lock_source, int options)
 {
   switch (hit_t)
   {
   case PF::Shape::hit_segment:
-    if (additional == get_points_count()-1) {
-      offset_point(additional, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
-      offset_point(0, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+    if (additional == 0) {
+      offset_point(0, 0, curr.get_y()-prev.get_y());
     }
-    else {
-      offset_point(additional, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
-      offset_point(additional+1, curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
+    else if (additional == 1) {
+      offset_point(1, curr.get_x()-prev.get_x(), 0);
     }
-    break;
-  case PF::Shape::hit_control_point:
-    get_control_point(additional).offset(curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
-    if (lock_control_points()) {
-      if (additional == 0) 
-//        get_control_point_end(get_points_count()-1).offset(-(curr.get_x()-prev.get_x()), -(curr.get_y()-prev.get_y()));
-        get_control_point_end(get_points_count()-1).set(-get_control_point(additional).get_x(), -get_control_point(additional).get_y());
-      else
-        get_control_point_end(additional-1).set(-get_control_point(additional).get_x(), -get_control_point(additional).get_y());
+    else if (additional == 2) {
+      offset_point(2, 0, curr.get_y()-prev.get_y());
+    }
+    else if (additional == 3) {
+      offset_point(0, curr.get_x()-prev.get_x(), 0);
     }
     break;
-  case PF::Shape::hit_control_point_end:
-    get_control_point_end(additional).offset(curr.get_x()-prev.get_x(), curr.get_y()-prev.get_y());
-    if (lock_control_points()) {
-      if (additional == get_points_count()-1) 
-        get_control_point(0).set(-get_control_point_end(additional).get_x(), -get_control_point_end(additional).get_y());
+  case PF::Shape::hit_falloff_segment:
+    if (falloff_can_be_offset(additional, prev, curr) && falloff_can_be_offset(additional+1, prev, curr)) {
+      if (additional == 3)
+        offset_falloff_point(additional+1, prev, curr);
       else
-        get_control_point(additional+1).set(-get_control_point_end(additional).get_x(), -get_control_point_end(additional).get_y());
+        offset_falloff_point(additional, prev, curr);
+    }
+    break;
+  case PF::Shape::hit_shape:
+  case PF::Shape::hit_falloff:
+    offset(prev, curr);
+    if (get_has_source() && lock_source) {
+      get_source_point().offset(curr, prev);
     }
     break;
   default:
-    PF::Shape::offset(hit_t, prev, curr, additional, lock_source);
+    PF::Polygon::offset(hit_t, prev, curr, additional, lock_source, options);
     break;
   }
 }
 
-int PF::BPath::hit_test(Point& pt, int& additional)
-{
-  VipsRect rc;  
-  get_mask_rect(&rc);
-  
-  // inside the falloff rect
-//  if ( hit_test_rect(pt, &rc) ) {
-  Point pt1, pt2;
-  
-  // check control points
-  for (int i = 0; i < get_points_count(); i++) {
-    pt1 = get_control_point_absolute(i);
-    if ( hit_test_node(pt, pt1) ) {
-      additional = i;
-      return hit_control_point;
-    }
-    pt1 = get_control_point_end_absolute(i);
-    if ( hit_test_node(pt, pt1) ) {
-      additional = i;
-      return hit_control_point_end;
-    }
-  }
-  // check nodes
-  for (int i = 0; i < get_points_count(); i++) {
-    pt1 = get_point(i);
-    if ( hit_test_node(pt, pt1) ) {
-      additional = i;
-      return hit_node;
-    }
-  }
-  // check segments
-  const int delta2 = (hit_test_delta*hit_test_delta);
-  
-  for (int i = 0; i < get_points_count()-1; i++) {
-    pt1 = get_point(i);
-    pt2 = get_point(i+1);
-    const float dist2 = pt.distance2segment2(pt1, pt2);
-    
-    if (dist2 <= delta2) {
-      additional = i;
-      return hit_segment;
-    }
-  }
-  // check last segment
-  if (get_points_count() > 0) {
-    pt1 = pt2;
-    pt2 = get_point(0);
-    const float dist2 = pt.distance2segment2(pt1, pt2);
-
-    if (dist2 <= delta2) {
-      additional = get_points_count()-1;
-      return hit_segment;
-    }
-  }
-
-//  }
-  
-  // check the source
-  if ( get_has_source() ) {
-    BPath shape = *this;
-    shape.set_has_source(false);
-    shape.offset(get_source_point());
-    int hit_t = shape.hit_test(pt, additional);
-    if ( hit_t != hit_none) hit_t = hit_source;
-    
-    return hit_t;
-  }
-
-  return hit_none;
-}
-
-void PF::BPath::build_mask(SplineCurve& scurve)
-{
-  
-}
 
 // -----------------------------------
 // ShapesGroup
@@ -2118,8 +3563,8 @@ PF::Shape* PF::ShapesGroup::get_shape(int index)
     shape = &(get_lines().data()[s_index]);
 
   else if ( s_type == PF::Shape::circle ) {
-    Circle1& sh = get_circles()[s_index];
-    shape = dynamic_cast<Circle1*>(&sh);
+    Circle& sh = get_circles()[s_index];
+    shape = dynamic_cast<Circle*>(&sh);
   }
   else if ( s_type == PF::Shape::ellipse )
     shape = &(get_ellipses().data()[s_index]);
@@ -2129,9 +3574,6 @@ PF::Shape* PF::ShapesGroup::get_shape(int index)
   
   else if ( s_type == PF::Shape::polygon )
     shape = &(get_polygons().data()[s_index]);
-  
-  else if ( s_type == PF::Shape::bpath )
-    shape = &(get_bpaths().data()[s_index]);
   
   else
     std::cout<<"PF::ShapesGroup::get_shape(): invalid shape index: "<<index<<std::endl;
@@ -2159,8 +3601,8 @@ int PF::ShapesGroup::add(Shape* shape_source)
     break;
   case PF::Shape::circle:
   {
-    PF::Circle1 shape;
-    const PF::Circle1* ss = static_cast<const PF::Circle1*>(shape_source);
+    PF::Circle shape;
+    const PF::Circle* ss = static_cast<const PF::Circle*>(shape_source);
     shape = *ss;
     circles.push_back(shape);
     index = circles.size()-1;
@@ -2177,11 +3619,11 @@ int PF::ShapesGroup::add(Shape* shape_source)
     break;
   case PF::Shape::rectangle:
   {
-    PF::Rect1 shape;
-    const PF::Rect1* ss = static_cast<const PF::Rect1*>(shape_source);
+    PF::Rectangle shape;
+    const PF::Rectangle* ss = static_cast<const PF::Rectangle*>(shape_source);
     shape = *ss;
-    rectangles1.push_back(shape);
-    index = rectangles1.size()-1;
+    rectangles.push_back(shape);
+    index = rectangles.size()-1;
   }
     break;
   case PF::Shape::polygon:
@@ -2193,17 +3635,6 @@ int PF::ShapesGroup::add(Shape* shape_source)
     shape = *ss;
     polygons.push_back(shape);
     index = polygons.size()-1;
-  }
-    break;
-  case PF::Shape::bpath:
-  {
-    std::cout<<"PF::ShapesGroup::add(): adding bpath "<<std::endl;
-    
-    PF::BPath shape;
-    const PF::BPath* ss = static_cast<const PF::BPath*>(shape_source);
-    shape = *ss;
-    bpaths.push_back(shape);
-    index = bpaths.size()-1;
   }
     break;
   default:
@@ -2239,10 +3670,7 @@ void PF::ShapesGroup::remove(int n)
     ellipses.erase(ellipses.begin()+nindex);
     break;
   case PF::Shape::rectangle:
-    rectangles1.erase(rectangles1.begin()+nindex);
-    break;
-  case PF::Shape::bpath:
-    bpaths.erase(bpaths.begin()+nindex);
+    rectangles.erase(rectangles.begin()+nindex);
     break;
   case PF::Shape::polygon:
     polygons.erase(polygons.begin()+nindex);
@@ -2253,7 +3681,7 @@ void PF::ShapesGroup::remove(int n)
   }
  
   for (int i = 0; i < shapes_order.size(); i++) {
-    if (shapes_order.at(i).first == ntype && shapes_order.at(n).second > nindex) {
+    if (shapes_order.at(i).first == ntype && shapes_order.at(i).second > nindex) {
       shapes_order.at(i).second--;
     }
   }
@@ -2266,9 +3694,8 @@ void PF::ShapesGroup::clear()
   lines.clear();
   circles.clear();
   ellipses.clear();
-  rectangles1.clear();
+  rectangles.clear();
   polygons.clear();
-  bpaths.clear();
   shapes_order.clear();
 
 }
@@ -2284,11 +3711,8 @@ void PF::ShapesGroup::scale(int sf)
   for (int i = 0; i < ellipses.size(); i++) {
     ellipses[i].scale(sf);
   }
-  for (int i = 0; i < rectangles1.size(); i++) {
-    rectangles1[i].scale(sf);
-  }
-  for (int i = 0; i < bpaths.size(); i++) {
-    bpaths[i].scale(sf);
+  for (int i = 0; i < rectangles.size(); i++) {
+    rectangles[i].scale(sf);
   }
   for (int i = 0; i < polygons.size(); i++) {
     polygons[i].scale(sf);
@@ -2306,11 +3730,8 @@ void PF::ShapesGroup::build_mask(SplineCurve& scurve)
   for (int i = 0; i < ellipses.size(); i++) {
     ellipses[i].build_mask(scurve);
   }
-  for (int i = 0; i < rectangles1.size(); i++) {
-    rectangles1[i].build_mask(scurve);
-  }
-  for (int i = 0; i < bpaths.size(); i++) {
-    bpaths[i].build_mask(scurve);
+  for (int i = 0; i < rectangles.size(); i++) {
+    rectangles[i].build_mask(scurve);
   }
   for (int i = 0; i < polygons.size(); i++) {
     polygons[i].build_mask(scurve);

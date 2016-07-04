@@ -105,6 +105,7 @@ class RadioImageButton: public Gtk::HBox
   std::vector<Gtk::VBox*> button_box;
   std::vector<Gtk::Image*> active_img;
   std::vector<Gtk::Image*> inactive_img;
+  std::vector<int> btn_ids;
 
   int btn_active;
 
@@ -113,10 +114,10 @@ public:
 
   RadioImageButton();
 
-  int get_btn_active() { return btn_active; }
-  void set_btn_active(int n);
+  int get_btn_active() { return (btn_active>=0) ? btn_ids[btn_active]: -1; }
+  void set_btn_active(int nb);
   
-  int add_button( Glib::ustring active, Glib::ustring inactive, bool is_active=false );
+  int add_button( int btn_id, Glib::ustring active, Glib::ustring inactive, bool is_active=false );
   
   bool on_button_press_event( GdkEventButton* button );
 
