@@ -83,15 +83,32 @@ PF::DrawShapesPar* par = dynamic_cast<PF::DrawShapesPar*>(get_par()); \
 if( !par ) return; \
 
 
+void PF::DrawShapesConfigGUI::selection_changed()
+{
+  PF::ShapesConfigGUI::selection_changed();
+
+  CALLBACK_BEGIN();
+
+  ShapeColor& shape_color = par->get_shapes_group().get_current_color();
+#ifdef GTKMM_2
+  Gdk::Color color;
+  color.set_rgb(shape_color.get_r(), shape_color.get_g(), shape_color.get_b());
+  fgd_color_button.set_color(color);
+#endif
+#ifdef GTKMM_3
+  Gdk::RGBA color;
+  color.set_rgba(shape_color.get_r(), shape_color.get_g(), shape_color.get_b());
+  fgd_color_button.set_rgba(color);
+#endif
+  
+}
+
 void PF::DrawShapesConfigGUI::on_fgd_color_changed()
 {
   CALLBACK_BEGIN();
   
   bool modified = false;
 
-//  PF::DrawShapesPar* par = dynamic_cast<PF::DrawShapesPar*>( get_par() );
-//  if( !par ) return;
-  
 #ifdef GTKMM_2
   float r = fgd_color_button.get_color().get_red()/65535;
   float g = fgd_color_button.get_color().get_green()/65535;
@@ -106,7 +123,6 @@ void PF::DrawShapesConfigGUI::on_fgd_color_changed()
   ShapeColor& color = par->get_shapes_group().get_current_color();
   for (int i = 0; i < get_selection_count(); i++)
   {
-//    color.set(par->get_fgd_color().get().r, par->get_fgd_color().get().g, par->get_fgd_color().get().b);
     par->get_shape(get_selected(i))->set_color(color);
     modified = true;
   }
@@ -144,5 +160,12 @@ void PF::DrawShapesConfigGUI::on_bgd_color_changed()
 
   if( layer->get_image() )
     layer->get_image()->update();
+}
+
+void PF::DrawShapesConfigGUI::do_update()
+{
+  PF::ShapesConfigGUI::do_update();
+  
+  lock_source_btn.hide();
 }
 

@@ -30,7 +30,7 @@
 #include "retouch.hh"
 
 int
-vips_retouch( VipsImage* in, VipsImage **out, PF::ProcessorBase* proc, /*int group_num,*/ PF::Shape* shape_obj, ...);
+vips_retouch( VipsImage* in, VipsImage **out, PF::ProcessorBase* proc, PF::Shape* shape_obj, ...);
 
 
 PF::RetouchPar::RetouchPar(): 
@@ -48,7 +48,7 @@ PF::RetouchPar::~RetouchPar()
 
 
 VipsImage* PF::RetouchPar::build(std::vector<VipsImage*>& in, int first, 
-				VipsImage* imap, VipsImage* omap, unsigned int& level)
+    VipsImage* imap, VipsImage* omap, unsigned int& level)
 {
   if( (in.size() < 1) || (in[0] == NULL) )
     return NULL;
@@ -56,30 +56,17 @@ VipsImage* PF::RetouchPar::build(std::vector<VipsImage*>& in, int first,
   VipsImage* outnew = in[0];
   PF_REF( outnew, "RetouchPar::build(): initial outnew ref" );
 
-  if (shapes_algo == NULL) {
-    std::cout<<"PF::ShapesPar::build() (shapes_algo == NULL)"<<std::endl;
-    return NULL;
-  }
-  if (shapes_algo->get_par() == NULL) {
-    std::cout<<"PF::ShapesPar::build() (shapes_algo->get_par() == NULL)"<<std::endl;
-    return NULL;
-  }
-  ShapesAlgoPar* shapes_algo_par = dynamic_cast<ShapesAlgoPar*>( shapes_algo->get_par() );
-  if (shapes_algo_par == NULL) {
-    std::cout<<"PF::ShapesPar::build() (shapes_algo_par == NULL)"<<std::endl;
-    return NULL;
-  }
 
-  shapes_algo_par->build_masks(get_shapes_group(), get_shapes_falloff_curve(), level); 
-  
-  for( unsigned int i = 0; i < shapes_algo_par->get_shapes_count(); i++) {
-    Shape* shape = shapes_algo_par->get_shape(i);
-    
+  build_masks(get_shapes_group(), get_shapes_falloff_curve(), level); 
+
+  for( unsigned int i = 0; i < get_shapes_scaled_count(); i++) {
+    Shape* shape = get_shape_scaled(i);
+
     VipsImage* tempimg = outnew;
-    if( vips_retouch( tempimg, &outnew, get_processor(), /*shape_type,*/ /*shape_index*/shape, NULL ) )
+    if( vips_retouch( tempimg, &outnew, get_processor(), shape, NULL ) )
       return NULL;
     PF_UNREF( tempimg, "RetouchPar::build(): tempimg unref" );
-      
+
   }
 
   return outnew;

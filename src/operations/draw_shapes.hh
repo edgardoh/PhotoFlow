@@ -55,6 +55,7 @@ public:
   void set_bgd_color(float r, float g, float b);
   
   Property<bool>& get_bgd_transparent() { return bgd_transparent; }
+  bool get_transparent() { return bgd_transparent.get(); }
 
   bool has_intensity() { return false; }
   bool needs_input() { return false; }
@@ -84,58 +85,7 @@ public:
       VipsRegion* imap, VipsRegion* omap,
       VipsRegion* oreg, OpParBase* par)
   {
-    std::cout<<"PF::DrawShapesProc::render() 2"<<std::endl;
-  }
-  
-};
-
-class DrawShapesAlgoPar: public ShapesAlgoPar
-{
-  ShapeColor bgd_color;
-  bool transparent;
-  
-public:
-
-  DrawShapesAlgoPar();
-
-  ~DrawShapesAlgoPar()
-  {
-  }
-
-  bool get_transparent() { return transparent; }
-  void set_transparent(bool t) { transparent = t; }
-  
-  ShapeColor& get_bgd_color() { return bgd_color; }
-  void set_bgd_color(ShapeColor& c) { bgd_color = c; }
-  
-  VipsImage* build(std::vector<VipsImage*>& in, int first,
-      VipsImage* imap, VipsImage* omap,
-      unsigned int& level);
-
-};
-
-template < OP_TEMPLATE_DEF >
-class DrawShapesAlgoProc
-{
-public:
-  void render(VipsRegion** in, int n, int in_first,
-      VipsRegion* imap, VipsRegion* omap,
-      VipsRegion* out, OpParBase* par)
-  {
-    std::cout<<"PF::DrawShapesAlgoProc::render()"<<std::endl;
-  }
-};
-
-
-template < OP_TEMPLATE_DEF_TYPE_SPEC >
-class DrawShapesAlgoProc< OP_TEMPLATE_IMP_TYPE_SPEC(float) >
-{
-public:
-  void render(VipsRegion** ireg, int n, int in_first,
-      VipsRegion* imap, VipsRegion* omap,
-      VipsRegion* oreg, OpParBase* par)
-  {
-    DrawShapesAlgoPar* opar = dynamic_cast<DrawShapesAlgoPar*>( par );
+    DrawShapesPar* opar = dynamic_cast<DrawShapesPar*>( par );
     if (opar == NULL) {
       std::cout<<"PF::DrawShapesAlgoProc::render() (opar == NULL)"<<std::endl;
       return;
@@ -151,7 +101,8 @@ public:
       vips_region_copy (ireg[in_first], oreg, r, r->left, r->top);
     }
     else {
-      ShapeColor& current_color = opar->get_bgd_color();
+      ShapeColor current_color;
+      current_color.set( opar->get_bgd_color().get().r, opar->get_bgd_color().get().g, opar->get_bgd_color().get().b );
 
       for( int y = 0; y < r->height; y++ ) {
         pout = (float*)VIPS_REGION_ADDR( oreg, r->left, r->top+y );
@@ -164,8 +115,8 @@ public:
       }
     }
 
-    for (int i = 0; i < opar->get_shapes_count(); i++) {
-      PF::Shape* shape = opar->get_shape(i);
+    for (int i = 0; i < opar->get_shapes_scaled_count(); i++) {
+      PF::Shape* shape = opar->get_shape_scaled(i);
       if (shape == NULL) {
         std::cout<<"PF::DrawShapesAlgoProc::render() (shape == NULL) "<<std::endl;
         return;
@@ -198,6 +149,7 @@ public:
     }
   }
 
+  
 };
 
 

@@ -31,8 +31,11 @@
 
 
 PF::ShapesMaskConfigGUI::ShapesMaskConfigGUI( PF::Layer* layer ):
-ShapesConfigGUI( layer, "shapes mask" )
+ShapesConfigGUI( layer, "shapes mask" ),
+invert_box( this, "invert", _("invert"), true )
 {
+  vbox_curves_prev.pack_start( invert_box, Gtk::PACK_SHRINK );
 
 }
+
 

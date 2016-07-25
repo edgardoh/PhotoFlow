@@ -217,6 +217,16 @@ int PF::RadioImageButton::add_button( int btn_id, Glib::ustring active, Glib::us
   return (button_box.size()-1);
 }
 
+void PF::RadioImageButton::hide_button(int btn_id)
+{
+  int n = 0;
+  while ( n < btn_ids.size() && btn_id != btn_ids[n]) n++;
+ 
+  if ( n < btn_ids.size() ) {
+    button_box[n]->hide();
+  }
+}
+
 void PF::RadioImageButton::set_btn_active(int nb)
 {
   int n = 0;
@@ -256,7 +266,7 @@ bool PF::RadioImageButton::on_button_press_event( GdkEventButton* button )
   }
       
   if (pressed >= 0 && pressed < button_box.size()) {
-    set_btn_active(pressed);
+    set_btn_active(btn_ids[pressed]);
     
     signal_clicked.emit();
   }

@@ -38,6 +38,8 @@ namespace PF {
 
   class ShapesMaskConfigGUI: public ShapesConfigGUI
   {
+    CheckBox invert_box;
+    
   public:
     ShapesMaskConfigGUI( Layer* l );
     
@@ -48,4 +50,3 @@ namespace PF {
 }
 
 #endif
-

@@ -32,72 +32,35 @@
 
 
 PF::ShapesMaskPar::ShapesMaskPar():
-ShapesPar()
+ShapesPar(),
+invert("invert",this,false)
 {
-  shapes_algo = new PF::Processor<PF::ShapesMaskAlgoPar,PF::ShapesMaskAlgoProc>();
-  
   set_type( "shapes_mask" );
   set_default_name( _("shapes mask") );
 }
 
-PF::ShapesMaskPar::~ShapesMaskPar()
-{
-}
+
 
 VipsImage* PF::ShapesMaskPar::build(std::vector<VipsImage*>& in, int first,
     VipsImage* imap, VipsImage* omap,
     unsigned int& level)
 {
-  if( (in.size()<1) || (in[0]==NULL) )
-    return NULL;
+  VipsImage* out = PF::ShapesPar::build( in, first, imap, omap, level );
 
-  VipsImage* srcimg = in[0];
-
-  std::vector<VipsImage*> in2;
-
-  if (shapes_algo == NULL) {
-    std::cout<<"PF::ShapesMaskPar::build() (shapes_algo == NULL)"<<std::endl;
+  int tw = 64, th = 64, nt = out->Xsize*2/tw;  
+  VipsImage* cached = out;
+  
+  VipsAccess acc = VIPS_ACCESS_RANDOM;
+  bool threaded = true, persistent = false;
+  if( vips_tilecache(out, &cached,
+      "tile_width", tw, "tile_height", th, "max_tiles", nt,
+      "access", acc, "threaded", threaded, "persistent", persistent, NULL) ) {
+    std::cout<<"ShapesMaskPar::build(): vips_tilecache() failed."<<std::endl;
     return NULL;
   }
-  if (shapes_algo->get_par() == NULL) {
-    std::cout<<"PF::ShapesMaskPar::build() (shapes_algo->get_par() == NULL)"<<std::endl;
-    return NULL;
-  }
-  ShapesMaskAlgoPar* shapes_algo_par = dynamic_cast<ShapesMaskAlgoPar*>( shapes_algo->get_par() );
-  if (shapes_algo_par == NULL) {
-    std::cout<<"PF::ShapesMaskPar::build() (shapes_algo_par == NULL)"<<std::endl;
-    return NULL;
-  }
-
-  shapes_algo_par->build_masks(get_shapes_group(), get_shapes_falloff_curve(), level); 
+  PF_UNREF( out, "GaussBlurPar::build(): iter_in unref" );
   
-  shapes_algo_par->set_image_hints( srcimg );
-  shapes_algo_par->set_format( get_format() );
-  in2.clear();
-  in2.push_back( srcimg );
-  VipsImage* out = shapes_algo_par->build( in2, 0, NULL, NULL, level );
-//  PF_UNREF( srcimg, "ShapesMaskPar::build(): srcimg unref" );
-
-  set_image_hints( out );
-
-  return out;
-  
-}
-
-PF::ShapesMaskAlgoPar::ShapesMaskAlgoPar():
-    ShapesAlgoPar()
-{
-  set_type( "shapes_algo" );
-  set_default_name( _("shapes_algo") );
-}
-
-VipsImage* PF::ShapesMaskAlgoPar::build(std::vector<VipsImage*>& in, int first,
-    VipsImage* imap, VipsImage* omap,
-    unsigned int& level)
-{
-  VipsImage* out = PF::OpParBase::build(in, first, NULL, NULL, level);
-  
-  return out;
+  return cached;
 }
 
 
@@ -105,4 +68,5 @@ PF::ProcessorBase* PF::new_shapes_mask()
 {
   return( new PF::Processor<PF::ShapesMaskPar,PF::ShapesMaskProc>() );
 }
+
 

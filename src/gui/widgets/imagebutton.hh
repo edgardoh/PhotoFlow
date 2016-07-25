@@ -118,6 +118,7 @@ public:
   void set_btn_active(int nb);
   
   int add_button( int btn_id, Glib::ustring active, Glib::ustring inactive, bool is_active=false );
+  void hide_button(int btn_id);
   
   bool on_button_press_event( GdkEventButton* button );
 

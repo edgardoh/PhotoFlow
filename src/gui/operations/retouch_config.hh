@@ -37,9 +37,9 @@
 
 namespace PF {
 
-  class RetouchConfigGUI: public ShapesConfigGUI
+class RetouchConfigGUI: public ShapesConfigGUI
 {
-    virtual bool get_has_source() { return true; }
+  virtual bool get_has_source() { return true; }
 
 public:
   RetouchConfigGUI( Layer* l );

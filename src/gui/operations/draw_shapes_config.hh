@@ -55,10 +55,12 @@ namespace PF {
   public:
     DrawShapesConfigGUI( Layer* l );
     
-
+    void selection_changed();
+    
     void on_fgd_color_changed();
     void on_bgd_color_changed();
 
+    void do_update();
   };
 
 }
