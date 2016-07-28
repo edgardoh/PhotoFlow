@@ -42,20 +42,23 @@
 
 PF::GmicGenericTiledPar::GmicGenericTiledPar(): 
 OpParBase(), 
+gmic_filter_prop("gmic_filter_prop", this),
 prop_name("prop_name", this, ""), 
 prop_command("prop_command", this, ""), 
-prop_arguments("prop_arguments", this, "")
+prop_arguments("prop_arguments", this, ""),
+prop_phf_arguments("prop_phf_arguments", this, ""),
+prop_arr_string("prop_arr_string", this)
 { 
   gmic = PF::new_gmic();
 //  gmic_generic_algo = new PF::Processor<PF::GmicGenericTiledAlgoPar,PF::GmicGenericTiledAlgoProc>();
   
-  padding = 0;
+  m_padding = 0;
   
   set_type( "gmic_generic_tiled" );
   set_default_name( _("GMIC Generic") );
   
 }
-
+/*
 void PF::GmicGenericTiledPar::post_init()
 {
 	OpParBase::post_init();
@@ -64,24 +67,45 @@ void PF::GmicGenericTiledPar::post_init()
 //	set_prop_command(columns[GMicLoad::col_command]);
 //	set_prop_arguments(columns[GMicLoad::col_arguments_gmic]);
 	
-  set_default_name( get_pf_filter()->get_name() );
+//  set_default_name( get_pf_filter()->get_name() );
 
-	create_properties();
+//	create_properties();
 	
 }
-
+*/
 std::string PF::GmicGenericTiledPar::build_command()
 {
-//  std::cout<<"PF::GmicGenericTiledPar::build_command()"<<std::endl;
+  std::cout<<"PF::GmicGenericTiledPar::build_command()"<<std::endl;
   
-  std::list<FilterField> field_list = get_pf_filter()->get_fields();
+//  std::list<FilterField> field_list = get_pf_filter()->get_fields();
 //  std::cout<<"PF::GmicGenericTiledPar::build_command() 2"<<std::endl;
 //  std::string gmic_command = static_cast<GmicFilter&>(get_pf_filter()).get_command();
-  GmicFilter* gmic_filter = dynamic_cast<GmicFilter*>( get_pf_filter() );
+//  GmicFilter* gmic_filter = dynamic_cast<GmicFilter*>( get_pf_filter() );
 //  std::cout<<"PF::GmicGenericTiledPar::build_command() 3"<<std::endl;
-  std::string gmic_command = gmic_filter->get_command();
+//  std::string gmic_command = gmic_filter->get_command();
 //  std::cout<<"PF::GmicGenericTiledPar::build_command(): "<<gmic_command<<std::endl;
   
+  GmicFilter1& gmic_prop = gmic_filter_prop.get();
+  std::list<GmicProperty>& field_list = gmic_prop.get_prop_list();
+  
+/*  std::cout<<"PF::GmicGenericTiledPar::build_command() get_prop_name(): "<<get_prop_name()<<std::endl;
+  std::cout<<"PF::GmicGenericTiledPar::build_command() get_prop_command(): "<<get_prop_command()<<std::endl;
+  std::cout<<"PF::GmicGenericTiledPar::build_command() get_prop_arguments(): "<<get_prop_arguments()<<std::endl;
+  std::cout<<"PF::GmicGenericTiledPar::build_command() get_prop_phf_arguments(): "<<get_prop_phf_arguments()<<std::endl;
+  for ( int i = 0; i < get_prop_arr_string().size(); i++ ) {
+    std::cout<<"PF::GmicGenericTiledPar::build_command() get_prop_arr_string(): "<<get_prop_arr_string()[i].first<<std::endl;
+    std::cout<<"PF::GmicGenericTiledPar::build_command() get_prop_arr_string(): "<<get_prop_arr_string()[i].second<<std::endl;
+  }*/
+  std::cout<<"PF::GmicGenericTiledPar::build_command() gmic_prop.get_is_folder(): "<<gmic_prop.get_is_folder()<<std::endl;
+  std::cout<<"PF::GmicGenericTiledPar::build_command() gmic_prop.get_entry_level(): "<<gmic_prop.get_entry_level()<<std::endl;
+  std::cout<<"PF::GmicGenericTiledPar::build_command() gmic_prop.get_filter_name(): "<<gmic_prop.get_filter_name()<<std::endl;
+  std::cout<<"PF::GmicGenericTiledPar::build_command() gmic_prop.get_filter_type(): "<<gmic_prop.get_filter_type()<<std::endl;
+  std::cout<<"PF::GmicGenericTiledPar::build_command() gmic_prop.get_filter_command(): "<<gmic_prop.get_filter_command()<<std::endl;
+  std::cout<<"PF::GmicGenericTiledPar::build_command() gmic_prop.get_filter_arguments(): "<<gmic_prop.get_filter_arguments()<<std::endl;
+  std::cout<<"PF::GmicGenericTiledPar::build_command() gmic_prop.get_filter_phf_arguments(): "<<gmic_prop.get_filter_phf_arguments()<<std::endl;
+  std::cout<<"PF::GmicGenericTiledPar::build_command() field_list.size(): "<<field_list.size()<<std::endl;
+
+  std::string gmic_command = gmic_prop.get_filter_command();
   int nbparams = field_list.size();
   std::string lres;
   switch (get_verbosity_mode()) {
@@ -93,20 +117,20 @@ std::string PF::GmicGenericTiledPar::build_command()
   lres += gmic_command;
   if (nbparams) {
     lres += ' ';
-    for (std::list<FilterField>::iterator it=field_list.begin(); it != field_list.end(); ++it) {
-      if ( it->field_type == FilterField::field_type_float || 
-          it->field_type == FilterField::field_type_int || 
-          it->field_type == FilterField::field_type_bool || 
-          it->field_type == FilterField::field_type_choise || 
-          it->field_type == FilterField::field_type_text_multi || 
-          it->field_type == FilterField::field_type_text_single || 
-          it->field_type == FilterField::field_type_file || 
-          it->field_type == FilterField::field_type_folder || 
-          it->field_type == FilterField::field_type_color ) {
-        PropertyBase* prop = get_property(it->field_name);
+    for (std::list<GmicProperty>::iterator it=field_list.begin(); it != field_list.end(); ++it) {
+      if ( it->get_prop_type() == GmicArgument::GmicArgumentType::arg_type_float || 
+          it->get_prop_type() == GmicArgument::GmicArgumentType::arg_type_int || 
+          it->get_prop_type() == GmicArgument::GmicArgumentType::arg_type_bool || 
+          it->get_prop_type() == GmicArgument::GmicArgumentType::arg_type_choise || 
+          it->get_prop_type() == GmicArgument::GmicArgumentType::arg_type_text_multi || 
+          it->get_prop_type() == GmicArgument::GmicArgumentType::arg_type_text_single || 
+          it->get_prop_type() == GmicArgument::GmicArgumentType::arg_type_file || 
+          it->get_prop_type() == GmicArgument::GmicArgumentType::arg_type_folder || 
+          it->get_prop_type() == GmicArgument::GmicArgumentType::arg_type_color ) {
+/*        PropertyBase* prop = get_property(it->field_name);
         if (prop) {
           std::string _ss;
-          if (it->field_type == FilterField::field_type_choise)
+          if (it->get_arg_type() == GmicArgument::GmicArgumentType::arg_type_choise)
             _ss = prop->get_enum_value_str();
           else
             _ss = prop->get_str();
@@ -116,6 +140,22 @@ std::string PF::GmicGenericTiledPar::build_command()
   
           lres += _ss + ',';
         }
+*/
+        std::string _ss;
+        it->get_str_value(_ss);
+        
+        const unsigned int l = (unsigned int)_ss.length();
+        for (unsigned int i = 1; i<l - 1; ++i) {
+          const char c = _ss[i];
+          _ss[i] = c=='\"'?gmic_dquote:c;
+          
+          std::cout<<"PF::GmicGenericTiledPar::build_command() _ss: "<<_ss<<std::endl;
+        }
+
+        lres += _ss + ',';
+      }
+      else {
+        std::cout<<"PF::GmicGenericTiledPar::build_command() it->get_prop_type(): "<<it->get_prop_type()<<std::endl;
       }
     }
     if (lres.back() == ',') lres.back() = 0;
@@ -123,6 +163,8 @@ std::string PF::GmicGenericTiledPar::build_command()
 
   gmic_command = lres;
 
+  std::cout<<"PF::GmicGenericTiledPar::build_command() gmic_command: "<<gmic_command<<std::endl;
+  
   return gmic_command;
 }
 
@@ -130,6 +172,8 @@ VipsImage* PF::GmicGenericTiledPar::build(std::vector<VipsImage*>& in, int first
                                         VipsImage* imap, VipsImage* omap, 
                                         unsigned int& level)
 {
+  std::cout<<"PF::GmicGenericTiledPar::build()"<<std::endl;
+  
   VipsImage* srcimg = NULL;
   if( in.size() > 0 ) srcimg = in[0];
 //  VipsImage* mask;
@@ -169,12 +213,44 @@ VipsImage* PF::GmicGenericTiledPar::build(std::vector<VipsImage*>& in, int first
   return out;
 }
 
+void PF::GmicGenericTiledPar::set_gmic_filter(GmicFilter1* gmf)
+{
+  std::cout<<"PF::GmicGenericTiledPar::set_gmic_filter()"<<std::endl;
+  
+  if ( gmf != NULL ) {
+    GmicFilter1& gmf_p = gmic_filter_prop.get();
+    
+    std::cout<<"PF::GmicGenericTiledPar::set_gmic_filter() gmf_p.get_poperties_count(): "<<gmf_p.get_poperties_count()<<std::endl;
+    if ( gmf_p.get_poperties_count() == 0 ) {
+      gmf_p = *gmf;
+      gmf_p.create_properties();
+      
+      set_default_name( gmf_p.get_filter_name() );
+      
+      set_prop_name( gmf_p.get_filter_name() );
+      set_prop_command( gmf_p.get_filter_command() );
+      set_prop_arguments( gmf_p.get_filter_arguments() );
+      set_prop_phf_arguments( gmf_p.get_filter_phf_arguments() );
+      
+      std::vector< std::pair<int,std::string> > temp;
+      
+//      std::pair<int,std::string>(1, 
+      temp.push_back( std::pair<int,std::string>(1, gmf_p.get_filter_name()) );
+      temp.push_back( std::pair<int,std::string>(2, gmf_p.get_filter_command()) );
+      temp.push_back( std::pair<int,std::string>(3, gmf_p.get_filter_arguments()) );
+      temp.push_back( std::pair<int,std::string>(4, gmf_p.get_filter_phf_arguments()) );
+      
+      set_prop_arr_string(temp);
+    }
+  }
+  
+}
 
 PF::ProcessorBase* PF::new_gmic_generic_tiled()
 {
   return( new PF::Processor<PF::GmicGenericTiledPar,PF::GmicGenericTiledProc>() );
 }
-
+#if 0
 void PF::GmicGenericTiledPar::create_properties() 
 {
   
@@ -253,7 +329,7 @@ void PF::GmicGenericTiledPar::create_properties()
   }
 
 }
-
+#endif
 #if 0
 void PF::GmicGenericTiledPar::create_properties(std::vector<std::string>& filter_arguments) {
 	GMicArgumentList arg_list;

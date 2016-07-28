@@ -95,7 +95,6 @@ namespace PF
   {
 	  std::string filter_command;
 	  
-    void parse_arguments(std::string& filter_arguments, std::list<FilterField>& arg_list);
 
   public:
 	  GmicFilter();
@@ -104,6 +103,7 @@ namespace PF
     void set_command(std::string s) { filter_command = s; }
     std::string get_command() { return filter_command; }
   
+    static void parse_arguments(std::string& filter_arguments, std::list<FilterField>& arg_list);
     void parse_arguments(std::string& filter_arguments);
 //    std::string build_command(OpParBase *par);
 

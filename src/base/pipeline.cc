@@ -129,8 +129,9 @@ PF::PipelineNode* PF::Pipeline::set_node( Layer* layer, Layer* input_layer )
         new_operation_nogui( srcpar->get_type(), NULL );
       std::cout<<"PF::PipelineNode* PF::Pipeline::set_node() "<<std::endl;
       if (node->processor->get_par() != NULL) {
-        node->processor->get_par()->set_pf_filter(srcpar->get_pf_filter());
-        node->processor->get_par()->post_init();
+//        node->processor->get_par()->set_pf_filter(srcpar->get_pf_filter());
+//        node->processor->get_par()->post_init();
+        node->processor->get_par()->set_gmic_filter(srcpar->get_gmic_filter());
       }
     }
 

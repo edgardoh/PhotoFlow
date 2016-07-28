@@ -37,7 +37,8 @@
 #include "help.hh"
 
 //#include "../operations/gmic/gmic_load.hh"
-#include "../base/gmic_filter.hh"
+//#include "../base/gmic_filter.hh"
+#include "../operations/gmic_generic.hh"
 
 /*
 #include "../operations/vips_operation.hh"
@@ -576,13 +577,14 @@ void PF::OperationsTreeDialog::add_layer()
     add_columns.push_back((*iter)[columns.col_add_02]);
     add_columns.push_back((*iter)[columns.col_add_03]);
 	  */
-    PFFilter *pf_filt = (*iter)[columns.col_filter];
-    processor->get_par()->set_pf_filter(pf_filt);
-    processor->get_par()->post_init();
+//    PFFilter *pf_filt = (*iter)[columns.col_filter];
+//    processor->get_par()->set_pf_filter(pf_filt);
+//    processor->get_par()->post_init();
+    processor->get_par()->set_gmic_filter( (*iter)[columns.col_filter] );
 
 	  if (ui) {
-      ui->set_pf_filter(pf_filt);
-      ui->post_init();
+//      ui->set_pf_filter(pf_filt);
+//      ui->post_init();
 	  }
   }
   
@@ -664,10 +666,10 @@ void PF::OperationsTreeDialog::add_layer()
 
 void PF::OperationsTreeDialog::load_gmic_filters(OperationsTreeWidget *op_tree_gmic)
 {
-  GMicFilters gmic_f;
+  GmicMenu gmic_f;
 //  gmic_f.load_filters(op_tree_gmic);
   gmic_f.load_filters();
-  std::list<GMicDefFilter>&gmic_def_filters = gmic_f.get_def_filters();
+  std::list<GmicFilter1>&gmic_def_filters = gmic_f.get_menu_entries();
   
   Gtk::Label lbl;
   lbl.set_use_markup(true);
@@ -678,12 +680,12 @@ void PF::OperationsTreeDialog::load_gmic_filters(OperationsTreeWidget *op_tree_g
   Gtk::TreeModel::Row row;
   OperationsTreeColumns columns;
 
-    std::list<GMicDefFilter>::iterator it_gmic;
+    std::list<GmicFilter1>::iterator it_gmic;
     for( it_gmic = gmic_def_filters.begin(); it_gmic != gmic_def_filters.end(); ++it_gmic ) {
-  //    std::list<GMicDefFilter>::iterator it_phf;
-  //    std::cout<<"PF::GMicFilters::load_filters(): name: "<<it_gmic->get_filter().get_name()<<std::endl;
+  //    std::list<GmicFilter1>::iterator it_phf;
+  //    std::cout<<"PF::GmicMenu::load_filters(): name: "<<it_gmic->get_filter().get_name()<<std::endl;
   //    bool exclude = false;
- //     GMicDefFilter phf_out;
+ //     GmicFilter1 phf_out;
  //     if (find_match_entry(phf_def_filters, *it_gmic, phf_out)) {
   //    for( it_phf = phf_entries.begin(); it_phf != phf_entries.end() && !found; ++it_phf ) {
   //      if( it_gmic->get_entry_command() == it_phf->get_entry_command() && it_gmic->get_entry_name() == it_phf->get_entry_name()) {
@@ -707,10 +709,10 @@ void PF::OperationsTreeDialog::load_gmic_filters(OperationsTreeWidget *op_tree_g
   //        found = true;
   //      }
   //    if (!exclude) {
-        GmicFilter *out_filter = new GmicFilter();
-        *out_filter = it_gmic->get_filter();
+        GmicFilter1 *out_filter = new GmicFilter1();
+        *out_filter = *it_gmic;
 
-        lbl.set_label(out_filter->get_name());
+        lbl.set_label(out_filter->get_filter_name());
         name = lbl.get_text();
 
         if (it_gmic->get_entry_level() > 0) {
@@ -724,7 +726,7 @@ void PF::OperationsTreeDialog::load_gmic_filters(OperationsTreeWidget *op_tree_g
         }
 
         row[columns.col_name] = name;
-        row[columns.col_nickname] = out_filter->get_type();
+        row[columns.col_nickname] = out_filter->get_filter_type();
         row[columns.col_filter] = out_filter;
       }
     }

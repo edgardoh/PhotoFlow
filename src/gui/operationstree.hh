@@ -31,7 +31,7 @@
 #define OPERATIONS_TREE__HH
 
 #include <gtkmm.h>
-#include "../base/pf_filter.hh"
+#include "../operations/gmic_generic.hh"
 
 
 namespace PF {
@@ -54,7 +54,7 @@ namespace PF {
     Gtk::TreeModelColumn<Glib::ustring> col_name;
     Gtk::TreeModelColumn<std::string> col_nickname;
     Gtk::TreeModelColumn<Glib::ustring> col_help;
-    Gtk::TreeModelColumn<PFFilter*> col_filter;
+    Gtk::TreeModelColumn<GmicFilter1*> col_filter;
   };
 
   class OperationsTree : public Gtk::TreeView

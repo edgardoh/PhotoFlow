@@ -408,6 +408,8 @@ namespace PF
     std::string& get() { return value; }
     void from_stream(std::istream& str)
     {
+      std::cout<<"Property<std::string> to_stream(std::ostream& str) "<<std::endl;
+      
       std::string old = value;
 			getline( str, value );
       if( value != old )
@@ -416,6 +418,8 @@ namespace PF
     }
     void to_stream(std::ostream& str)
     {
+      std::cout<<"Property<std::string> to_stream(std::ostream& str) "<<std::endl;
+      
       str<<value;
     }
 

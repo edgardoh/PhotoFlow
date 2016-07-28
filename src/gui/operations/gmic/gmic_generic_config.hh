@@ -41,15 +41,18 @@ namespace PF {
 //    Gtk::Button updateButton;
     Gtk::VBox controlsBox;
 
+    bool m_controls_created;
+    
   public:
     GmicGenericConfigGUI( Layer* l );
     
-    void post_init();
+//    void post_init();
     void create_controls();
 
 //    void create_parameters_gui(std::string filter_arguments, const bool reset_params);
-    
-//    void on_update();
+    void sl_changed();
+
+    void do_update();
   };
 
 }

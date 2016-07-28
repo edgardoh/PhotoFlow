@@ -32,6 +32,7 @@
 
 
 #include "../base/processor.hh"
+#include "../gmic_generic.hh"
 
 
 namespace PF 
@@ -41,12 +42,16 @@ class GmicGenericTiledPar: public OpParBase
 {
 	Property<std::string> prop_name;
 	Property<std::string> prop_command;
-	Property<std::string> prop_arguments;
+  Property<std::string> prop_arguments;
+  Property<std::string> prop_phf_arguments;
+  Property< std::vector< std::pair<int,std::string> > > prop_arr_string;
+	
+  Property<GmicFilter1> gmic_filter_prop;
 	
   ProcessorBase* gmic;
 //  ProcessorBase* gmic_generic_algo;
 
-  int padding;
+  int m_padding;
 
 public:
   GmicGenericTiledPar();
@@ -61,16 +66,24 @@ public:
   std::string get_prop_command() { return prop_command.get(); }
   void set_prop_arguments(const std::string s) { prop_arguments.set(s); }
   std::string get_prop_arguments() { return prop_arguments.get(); }
+  void set_prop_phf_arguments(const std::string s) { prop_phf_arguments.set(s); }
+  std::string get_prop_phf_arguments() { return prop_phf_arguments.get(); }
+  void set_prop_arr_string(const std::vector< std::pair<int,std::string> > s) { prop_arr_string.set(s); }
+  std::vector< std::pair<int,std::string> > get_prop_arr_string() { return prop_arr_string.get(); }
 
-  int get_padding( int level ) { return padding; }    
-  void set_padding( int p ) { padding = p; }    
+  int get_padding( int level ) { return m_padding; }    
+  void set_padding( int p ) { m_padding = p; }    
   int get_verbosity_mode() { return 0; }
 
-  void post_init();
-  void create_properties();
+//  void post_init();
+//  void create_properties();
   std::string build_command();
 //  void create_properties(std::vector<std::string>& filter_arguments);
-
+  void set_gmic_filter(GmicFilter1* gmf);
+  GmicFilter1* get_gmic_filter( ) { return &get_gmic_filer_prop(); }
+  
+  GmicFilter1& get_gmic_filer_prop() { return gmic_filter_prop.get(); }
+  
   VipsImage* build(std::vector<VipsImage*>& in, int first, 
                    VipsImage* imap, VipsImage* omap, 
                    unsigned int& level);
@@ -79,20 +92,23 @@ public:
 
 class GmicGenericTiledAlgoPar: public OpParBase
 {
-	std::string prop_name;
+/*	std::string prop_name;
 	std::string prop_command;
 	std::string prop_arguments;
+*/
+  GmicFilter1 gmic_filter_prop;
 
 public:
   GmicGenericTiledAlgoPar(): OpParBase() { };
 
-  void set_filter_name(const std::string s) { prop_name = s; }
+/*  void set_filter_name(const std::string s) { prop_name = s; }
   std::string get_filter_name() { return prop_name; }
   void set_filter_command(const std::string s) { prop_command = s; }
   std::string get_filter_command() { return prop_command; }
   void set_filter_arguments(const std::string s) { prop_arguments = s; }
   std::string get_filter_arguments() { return prop_arguments; }
-
+*/
+  
 };
 
 

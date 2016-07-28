@@ -53,7 +53,8 @@
 
 #include "photoflow.hh"
 
-#include "pf_filter.hh"
+//#include "pf_filter.hh"
+#include "../operations/gmic_generic.hh"
 
 
 
@@ -109,7 +110,7 @@ namespace PF
   {
     std::list<std::string> initial_params;
 
-    PFFilter* pf_filter;
+//    PFFilter* pf_filter;
 
     Layer* layer;
 
@@ -129,10 +130,10 @@ namespace PF
     virtual void do_update() { update(); }
     virtual void update_properties() = 0;
     
-    virtual void post_init() { }
+//    virtual void post_init() { }
 //    PFFilter& get_pf_filter() { return pf_filter; }
-    PFFilter* get_pf_filter() { return pf_filter; }
-    void set_pf_filter(PFFilter* f) { pf_filter = f; }
+//    PFFilter* get_pf_filter() { return pf_filter; }
+//    void set_pf_filter(PFFilter* f) { pf_filter = f; }
 
   };
 
@@ -178,7 +179,7 @@ namespace PF
 
     Property<bool> mask_enabled;
     
-    PFFilter* pf_filter;
+//    PFFilter* pf_filter;
 
   public:
     sigc::signal<void> signal_modified;
@@ -252,10 +253,12 @@ namespace PF
     std::string get_default_name() { return default_name; }
     void set_default_name( std::string n ) { default_name = n; }
 
-    virtual void post_init() { }
+//    virtual void post_init() { }
 //    PFFilter& get_pf_filter() { return pf_filter; }
-    void set_pf_filter(PFFilter* f) { pf_filter = f; }
-    PFFilter* get_pf_filter() { return pf_filter; }
+//    void set_pf_filter(PFFilter* f) { pf_filter = f; }
+//    PFFilter* get_pf_filter() { return pf_filter; }
+    virtual void set_gmic_filter(GmicFilter1* gmf) {  }
+    virtual GmicFilter1* get_gmic_filter( ) { return NULL; }
 
     int get_rgb_target_channel() 
     {

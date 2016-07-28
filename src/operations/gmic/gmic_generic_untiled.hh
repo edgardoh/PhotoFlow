@@ -56,7 +56,7 @@ namespace PF
     void set_prop_arguments(const std::string s) { prop_arguments.set(s); }
     std::string get_prop_arguments() { return prop_arguments.get(); }
 
-    void post_init();
+//    void post_init();
 //    void create_properties(std::vector<std::string>& filter_arguments);
 
 /*    std::vector<VipsImage*> build_many(std::vector<VipsImage*>& in, int first,

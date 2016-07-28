@@ -115,7 +115,7 @@ void PF::GmicGenericUntiledPar::create_properties(std::vector<std::string>& filt
 
 }
 #endif
-
+/*
 void PF::GmicGenericUntiledPar::post_init()
 {
   GmicUntiledOperationPar::post_init();
@@ -127,7 +127,7 @@ void PF::GmicGenericUntiledPar::post_init()
 //  create_properties();
   
 }
-
+*/
 
 /*std::vector<VipsImage*> PF::GmicGenericUntiledPar::build_many(std::vector<VipsImage*>& in, int first,
     VipsImage* imap, VipsImage* omap,
