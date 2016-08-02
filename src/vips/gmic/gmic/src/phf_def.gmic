@@ -1,0 +1,55 @@
+#@gimp <b>About</b> : phf_exclude(1)
+
+#@gimp Array [random] : array_random, array_random(1)
+#@gimp : phf_exclude = const(1)
+
+#@gimp Chessboard : gimp_chessboard, gimp_chessboard_preview(0)
+#@gimp : phf_exclude = const(1)
+
+#@gimp Convolve : gimp_convolve, gimp_convolve_preview(0)
+#@gimp : phf_exclude = const(1)
+
+#@gimp Ascii art : gimp_asciiart, gimp_asciiart_preview(0)+
+#@gimp : phf_exclude = const(1)
+
+#@gimp Dices : gimp_dices, gimp_dices(0)
+#@gimp : phf_exclude = const(1)
+
+#@gimp Extract objects : gimp_extract_objects, gimp_extract_objects_preview(1)
+#@gimp : phf_exclude = const(1)
+
+#@gimp Grid [cartesian] : gimp_imagegrid, gimp_imagegrid(0)
+#@gimp : phf_exclude = const(1)
+
+#@gimp Ministeck : gimp_ministeck, gimp_ministeck_preview(1)
+#@gimp : phf_exclude = const(1)
+
+#@gimp Montage : gimp_montage, gimp_montage_preview(1)
+#@gimp : phf_exclude = const(1)
+
+#@gimp Taquin : gimp_taquin, gimp_taquin(1)
+#@gimp : phf_exclude = const(1)
+
+#@gimp _<b>Rendering</b>
+#@gimp : phf_exclude = const(1)
+
+#@gimp Brushify : gimp_brushify, gimp_brushify_preview(0)
+#@gimp : phf_process = const(untiled)
+
+#@gimp Cartoon : cartoon, gimp_cartoon_preview(0)
+#@gimp : phf_process = const(tiled)
+#@gimp : phf_padding = const(20)
+
+#@gimp Smooth [wavelets] : gimp_haar_smoothing, gimp_haar_smoothing_preview(0)
+#@gimp : phf_process = const(untiled)
+
+#@gimp Freaky details : gimp_freaky_details, gimp_freaky_details_preview(0)
+#@gimp : phf_process = const(untiled2)
+#@gimp : phf_padding = const(20)
+
+#@gimp Sharpen [deblur] : gimp_deblur, gimp_deblur_preview(0)
+#@gimp : phf_process = const(tiled)
+#@gimp : phf_padding = const(20)
+
+#@gimp Fourier watermark : gimp_watermark_fourier, _none_
+#@gimp : phf_process = const(untiled2)

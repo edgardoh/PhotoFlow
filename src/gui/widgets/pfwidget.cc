@@ -88,5 +88,6 @@ void PF::PFWidget::changed()
       //dialog->get_layer()->get_image()->unlock();
     }
   }
+  value_changed_widg.emit(this);
 }
  

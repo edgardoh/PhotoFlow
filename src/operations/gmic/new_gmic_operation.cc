@@ -101,6 +101,12 @@ PF::ProcessorBase* PF::new_gmic_operation( std::string op_type )
     processor = new_gmic_transfer_colors();
   } else if( op_type == "gmic_watermark_fourier" ) {
     processor = new_gmic_watermark_fourier();
+  } else if( op_type == "gmic_generic_tiled" ) {
+    processor = new_gmic_generic_tiled();
+  } else if( op_type == "gmic_generic_untiled" ) {
+    processor = new_gmic_generic_untiled();
+  } else if( op_type == "gmic_generic_untiled2" ) {
+    processor = new_gmic_generic_untiled2();
     //insert new operations here
   }
 

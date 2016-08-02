@@ -52,6 +52,7 @@ namespace PF {
     void set_value();
 
     bool get_active() { return check.get_active(); }
+    void set_active(bool a) { check.set_active(a); }
   };
 
 

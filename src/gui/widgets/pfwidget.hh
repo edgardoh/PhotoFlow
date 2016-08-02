@@ -50,12 +50,14 @@ namespace PF {
     PFWidget(OperationConfigGUI* d, ProcessorBase* p, std::string n);
 
     sigc::signal<void> value_changed;
+    sigc::signal<void,PFWidget*> value_changed_widg;
+    sigc::signal<void,PFWidget*> value_reset_widg;
 
     bool get_inhibit() { return inhibit; }
     void set_inhibit( bool val ) { inhibit = val; }
     void set_passive( bool val ) { passive = val; }
 
-    virtual void reset() { set_inhibit(true); if(property) {property->reset(); get_value();} set_inhibit(false); }
+    virtual void reset() { set_inhibit(true); if(property) {property->reset(); get_value();} value_reset_widg.emit(this); set_inhibit(false); }
 
     OperationConfigGUI* get_dialog() { return dialog; }
 

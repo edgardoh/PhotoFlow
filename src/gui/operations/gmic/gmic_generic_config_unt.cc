@@ -27,35 +27,21 @@
 
  */
 
-#ifndef TEXTBOX_HH
-#define TEXTBOX_HH
+#include "gmic_generic_config_unt.hh"
+#include "../../../operations/gmic/gmic_generic_untiled.hh"
+//#include "../../widgets/colorbtn.hh"
 
-#include <gtkmm.h>
 
-#include "pfwidget.hh"
-
-namespace PF {
-
-  class TextBox: public Gtk::HBox, public PFWidget
-  {
-    Gtk::Label label;
-    Gtk::Entry entry;
-
-  public:
-    TextBox(OperationConfigGUI* dialog, std::string pname, std::string l, std::string val);
-    TextBox(OperationConfigGUI* dialog, std::string pname, std::string l, double val);
-
-    ~TextBox() {}
-
-    void get_value();
-    void set_value();
-    
-    void get_value(std::string& str);
-    void set_value(std::string str);
-
-  };
-
+PF::GmicGenericConfigUntiledGUI::GmicGenericConfigUntiledGUI( PF::Layer* layer ):
+GmicGenericConfigGUI( layer )
+{
 
 }
 
-#endif
+PF::GmicFilter& PF::GmicGenericConfigUntiledGUI::get_gmic_filter()
+{
+  PF::GmicGenericUntiledPar* par = dynamic_cast<PF::GmicGenericUntiledPar*>(get_par());
+  return par->get_gmic_filer_prop();
+}
+
+

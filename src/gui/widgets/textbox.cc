@@ -86,3 +86,13 @@ void PF::TextBox::set_value()
   std::string str = entry.get_text().c_str();
   get_prop()->update(str);
 }
+
+void PF::TextBox::get_value(std::string& str)
+{
+  str = entry.get_text().c_str();
+}
+
+void PF::TextBox::set_value(std::string str)
+{
+  entry.set_text( str );
+}

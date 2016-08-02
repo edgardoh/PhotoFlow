@@ -53,6 +53,7 @@
 
 #include "photoflow.hh"
 
+#include "../operations/gmic_generic.hh"
 
 
 #define OP_TEMPLATE_DEF \
@@ -243,6 +244,8 @@ namespace PF
     std::string get_default_name() { return default_name; }
     void set_default_name( std::string n ) { default_name = n; }
 
+    virtual void set_gmic_filter(GmicFilter* gmf) {  }
+    virtual GmicFilter* get_gmic_filter( ) { return NULL; }
 
     int get_rgb_target_channel() 
     {

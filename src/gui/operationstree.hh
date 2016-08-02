@@ -32,6 +32,8 @@
 
 #include <gtkmm.h>
 
+#include "../operations/gmic_generic.hh"
+
 
 namespace PF {
 
@@ -47,11 +49,13 @@ namespace PF {
       add(col_name); 
       add(col_nickname); 
       add(col_help);
+      add(col_gmic_filter);
     }
     
     Gtk::TreeModelColumn<Glib::ustring> col_name;
     Gtk::TreeModelColumn<std::string> col_nickname;
     Gtk::TreeModelColumn<Glib::ustring> col_help;
+    Gtk::TreeModelColumn<GmicFilter*> col_gmic_filter;
   };
 
   class OperationsTree : public Gtk::TreeView
@@ -143,6 +147,9 @@ namespace PF {
     void add_layer();
 
     void open();
+    
+    std::string get_selected_op_type();
+    void load_gmic_filters(OperationsTreeWidget *op_tree_gmic);
   };
 
 }

@@ -27,34 +27,41 @@
 
  */
 
-#ifndef TEXTBOX_HH
-#define TEXTBOX_HH
+#ifndef GMIC_GENERIC_CONFIG_DIALOG_HH
+#define GMIC_GENERIC_CONFIG_DIALOG_HH
 
 #include <gtkmm.h>
+#include "../../operation_config_gui.hh"
 
-#include "pfwidget.hh"
 
 namespace PF {
 
-  class TextBox: public Gtk::HBox, public PFWidget
+  class GmicGenericConfigGUI: public OperationConfigGUI
   {
-    Gtk::Label label;
-    Gtk::Entry entry;
+    Gtk::VBox controlsBox;
 
-  public:
-    TextBox(OperationConfigGUI* dialog, std::string pname, std::string l, std::string val);
-    TextBox(OperationConfigGUI* dialog, std::string pname, std::string l, double val);
-
-    ~TextBox() {}
-
-    void get_value();
-    void set_value();
+  protected:
+    bool m_controls_created;
     
-    void get_value(std::string& str);
-    void set_value(std::string str);
+  public:
+    GmicGenericConfigGUI( Layer* l );
+    
+    virtual PF::GmicFilter& get_gmic_filter();
+    
+    void create_controls_internal(GmicFilter& gmf);
+    virtual void create_controls();
+
+    bool value_changed_widg_internal(PF::PFWidget* widg, GmicFilter& gmic_filter);
+    bool value_reset_widg_internal(PF::PFWidget* widg, GmicFilter& gmic_filter);
+
+    virtual void value_changed_widg(PF::PFWidget* widg);
+    virtual void value_reset_widg(PF::PFWidget* widg);
+
+    void do_update();
+    
+    void parameters_reset();
 
   };
-
 
 }
 

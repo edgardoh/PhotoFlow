@@ -89,6 +89,9 @@ namespace PF {
     void get_value();
     void set_value();
 
+    double get_adj_value();
+    void set_adj_value(double val);
+    
     void update_gui()
     {
       while (gtk_events_pending())

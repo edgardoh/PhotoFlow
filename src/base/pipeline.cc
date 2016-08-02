@@ -124,6 +124,10 @@ PF::PipelineNode* PF::Pipeline::set_node( Layer* layer, Layer* input_layer )
         delete( node->processor );
       node->processor = PF::PhotoFlow::Instance().
         new_operation_nogui( srcpar->get_type(), NULL );
+      
+      if (node->processor->get_par() != NULL) {
+        node->processor->get_par()->set_gmic_filter(srcpar->get_gmic_filter());
+      }
     }
 
     if( (node->processor != NULL) &&

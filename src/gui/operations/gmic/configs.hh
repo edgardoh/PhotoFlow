@@ -63,3 +63,6 @@
 #include "split_details_config.hh"
 #include "transfer_colors_config.hh"
 #include "watermark_fourier_config.hh"
+#include "gmic_generic_config.hh"
+#include "gmic_generic_config_unt.hh"
+#include "gmic_generic_config_unt2.hh"

@@ -27,32 +27,37 @@
 
  */
 
-#ifndef TEXTBOX_HH
-#define TEXTBOX_HH
+#ifndef COLORBTN_HH
+#define COLORBTN_HH
 
 #include <gtkmm.h>
 
 #include "pfwidget.hh"
+#include "../../operations/gmic_generic.hh"
 
 namespace PF {
 
-  class TextBox: public Gtk::HBox, public PFWidget
+  class ColorBtn: public Gtk::HBox, public PFWidget
   {
-    Gtk::Label label;
-    Gtk::Entry entry;
+	  Gtk::ColorButton colorbtn;
+	  Gtk::Label label;
+	  Gtk::HBox hbox_btn;
 
   public:
-    TextBox(OperationConfigGUI* dialog, std::string pname, std::string l, std::string val);
-    TextBox(OperationConfigGUI* dialog, std::string pname, std::string l, double val);
+	  
+    ColorBtn(OperationConfigGUI* dialog, std::string pname, Glib::ustring l, const PF::GmicColor& val);
 
-    ~TextBox() {}
+    ~ColorBtn() {}
 
+    
     void get_value();
     void set_value();
-    
-    void get_value(std::string& str);
-    void set_value(std::string str);
 
+    Glib::ustring get_text();
+    void set_text(Glib::ustring l);
+
+    void get_color(GmicColor& color);
+    void set_color(GmicColor& color);
   };
 
 

@@ -74,6 +74,10 @@ namespace PF {
       return true;
     }
 
+    void add_rows(std::map< int, std::pair<std::string,std::string> > values, std::pair< int, std::pair<std::string,std::string> >& active);
+    int get_active_row();
+    void set_active_row(int row);
+
     void get_value();
     void set_value();
   };

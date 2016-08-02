@@ -188,3 +188,27 @@ void PF::Slider::set_value()
   get_prop()->update(val);
   //std::cout<<"PF::Slider::set_value(): property=\""<<get_prop_name()<<"\"(0x"<<get_prop()<<")  val="<<val<<std::endl;
 }
+
+double PF::Slider::get_adj_value()
+{
+#ifdef GTKMM_2
+  double val = adjustment.get_value()/multiplier;
+#endif
+#ifdef GTKMM_3
+  double val = adjustment->get_value()/multiplier;
+#endif
+  
+  return val;
+}
+
+void PF::Slider::set_adj_value(double val)
+{
+#ifdef GTKMM_2
+  adjustment.set_value( val*multiplier );
+#endif
+#ifdef GTKMM_3
+  adjustment->set_value( val*multiplier );
+  spinButton.update();
+#endif
+}
+

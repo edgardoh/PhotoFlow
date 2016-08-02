@@ -290,7 +290,7 @@ PF::OperationsTreeDialog::OperationsTreeDialog( Image* img, LayerWidget* lw ):
   op_detail.get_tree().signal_row_activated().connect( sigc::mem_fun(*this, &PF::OperationsTreeDialog::on_row_activated) );
   op_geom.get_tree().signal_row_activated().connect( sigc::mem_fun(*this, &PF::OperationsTreeDialog::on_row_activated) );
   op_misc.get_tree().signal_row_activated().connect( sigc::mem_fun(*this, &PF::OperationsTreeDialog::on_row_activated) );
-
+  op_gmic.get_tree().signal_row_activated().connect( sigc::mem_fun(*this, &PF::OperationsTreeDialog::on_row_activated) );
 
   op_load.get_tree().add_op( _("Open image"), "imageread" );
   op_load.get_tree().add_op( _("Open RAW image"), "raw_loader" );
@@ -339,6 +339,8 @@ PF::OperationsTreeDialog::OperationsTreeDialog( Image* img, LayerWidget* lw ):
 
   //#if !defined(__APPLE__) && !defined(__MACH__)
 #ifndef PF_DISABLE_GMIC
+  load_gmic_filters(&op_gmic);
+/*  
   //op_gmic.get_tree().add_op( "G'MIC Interpreter"), "gmic" );
   op_gmic.get_tree().add_op( _("Dream Smoothing"), "gmic_dream_smooth" );
   op_gmic.get_tree().add_op( _("Gradient Norm"), "gmic_gradient_norm" );
@@ -362,6 +364,7 @@ PF::OperationsTreeDialog::OperationsTreeDialog( Image* img, LayerWidget* lw ):
   op_gmic.get_tree().add_op( _("Smooth [guided]"), "gmic_smooth_guided" );
   op_gmic.get_tree().add_op( _("Tone mapping"), "gmic_tone_mapping" );
   op_gmic.get_tree().add_op( _("Transfer colors [advanced]"), "gmic_transfer_colors" );
+  */
 #endif
 
 
@@ -415,9 +418,11 @@ void PF::OperationsTreeDialog::on_button_clicked(int id)
     hide();
     break;
   case 1:
-    add_layer();
-    //hide_all();
-    hide();
+    if (get_selected_op_type() != "") {
+      add_layer();
+      //hide_all();
+      hide();
+    }
     break;
   }
 }
@@ -425,9 +430,11 @@ void PF::OperationsTreeDialog::on_button_clicked(int id)
 
 void PF::OperationsTreeDialog::on_row_activated( const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column )
 {
-  add_layer();
-  //hide_all();
-  hide();
+  if (get_selected_op_type() != "") {
+    add_layer();
+    //hide_all();
+    hide();
+  }
   /*
   Gtk::TreeModel::iterator iter = op_tree.get_model()->get_iter( path );
   if (iter) {
@@ -443,7 +450,51 @@ void PF::OperationsTreeDialog::on_row_activated( const Gtk::TreeModel::Path& pat
    */
 }
 
+std::string PF::OperationsTreeDialog::get_selected_op_type()
+{
+  std::string op_type = "";
+  Gtk::TreeStore::iterator iter;
+  PF::OperationsTree* op_tree = NULL;
 
+  int page = notebook.get_current_page();
+  if( page >= 0 ) {
+    switch( page ) {
+    case 0:
+      op_tree = &(op_load.get_tree());
+      break;
+    case 1:
+      op_tree = &(op_color.get_tree());
+      break;
+    case 2:
+      op_tree = &(op_detail.get_tree());
+      break;
+    case 3:
+      op_tree = &(op_geom.get_tree());
+      break;
+    case 4:
+      op_tree = &(op_mask.get_tree());
+      break;
+    case 5:
+      op_tree = &(op_gmic.get_tree());
+      break;
+    case 6:
+      op_tree = &(op_misc.get_tree());
+      break;
+    }
+  }
+  
+  if( op_tree != NULL) {
+    Glib::RefPtr<Gtk::TreeSelection> refTreeSelection = op_tree->get_selection();
+    iter = refTreeSelection->get_selected();
+    if( iter != NULL ) {
+      PF::OperationsTreeColumns& columns = op_tree->get_columns();
+
+      op_type = (*iter)[columns.col_nickname];
+    }
+  }
+
+  return op_type;
+}
 
 void PF::OperationsTreeDialog::add_layer()
 {
@@ -506,6 +557,11 @@ void PF::OperationsTreeDialog::add_layer()
       PF::PhotoFlow::Instance().new_operation( op_type.c_str(), layer );
   if( !processor || !processor->get_par() ) return;
   PF::OperationConfigUI* ui = dynamic_cast<PF::OperationConfigUI*>( processor->get_par()->get_config_ui() );
+  
+  // pass additional data from creation layer dialog
+  processor->get_par()->set_gmic_filter( (*iter)[columns.col_gmic_filter] );
+
+  
   if( processor->get_par()->get_default_name().empty() )
     layer->set_name( _("New Layer") );
   else
@@ -564,6 +620,8 @@ void PF::OperationsTreeDialog::add_layer()
   }
    */
 
+  std::cout<<"void PF::OperationsTreeDialog::add_layer() 1"<<std::endl;
+  
   if( processor ) {
     layer_widget->add_layer( layer );
     //layer_manager.get_layers().push_back( layer );
@@ -580,4 +638,47 @@ void PF::OperationsTreeDialog::add_layer()
       }
     }
   }
+  std::cout<<"void PF::OperationsTreeDialog::add_layer() 2"<<std::endl;
+
 }
+
+void PF::OperationsTreeDialog::load_gmic_filters(OperationsTreeWidget *op_tree_gmic)
+{
+  GmicMenu gmic_f;
+  gmic_f.load_filters();
+  std::vector<GmicFilter>& gmic_def_filters = gmic_f.get_menu_entries();
+
+  Gtk::Label lbl;
+  lbl.set_use_markup(true);
+  Glib::ustring name;
+  Gtk::TreeModel::Row menu_levels[10];
+  Glib::RefPtr<Gtk::TreeStore> tree_model = op_tree_gmic->get_tree().get_model();
+  Gtk::TreeModel::Row row;
+  OperationsTreeColumns columns;
+
+  std::vector<GmicFilter>::iterator it_gmic;
+  for( it_gmic = gmic_def_filters.begin(); it_gmic != gmic_def_filters.end(); ++it_gmic ) {
+    GmicFilter *out_filter = new GmicFilter();
+    *out_filter = *it_gmic;
+
+    lbl.set_label(out_filter->get_filter_name());
+    name = lbl.get_text();
+
+    if (it_gmic->get_entry_level() > 0) {
+      row = *(tree_model->append(menu_levels[it_gmic->get_entry_level()-1].children()));
+    }
+    else {
+      row = *(tree_model->append());
+    }
+    if (it_gmic->get_is_folder()) {
+      menu_levels[it_gmic->get_entry_level()] = row;
+    }
+
+    row[columns.col_name] = name;
+    row[columns.col_nickname] = out_filter->get_filter_type();
+    row[columns.col_gmic_filter] = out_filter;
+  }
+}
+
+
+

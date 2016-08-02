@@ -105,7 +105,6 @@ void PF::Selector::get_value()
   }
 }
 
-
 void PF::Selector::set_value()
 {
   if( !get_prop() ) return;
@@ -125,4 +124,39 @@ void PF::Selector::set_value()
       get_prop()->update(str);
     }
   }
+}
+
+int PF::Selector::get_active_row()
+{
+  Gtk::TreeModel::iterator iter = cbox.get_active();
+  if( iter ) {
+    Gtk::TreeModel::Row row = *iter;
+    if( row ) {
+      //Get the data for the selected row, using our knowledge of the tree
+      //model:
+      return row[columns.col_id];
+    }
+  }
+  return -1;
+}
+
+void PF::Selector::set_active_row(int row)
+{
+  cbox.set_active( row );
+}
+
+void PF::Selector::add_rows(std::map< int, std::pair<std::string,std::string> > values, std::pair< int, std::pair<std::string,std::string> >& active)
+{
+  std::map< int, std::pair<std::string,std::string> >::iterator iter;
+  for( iter = values.begin(); iter != values.end(); iter++ ) {
+    if( !check_value((*iter).first,(*iter).second.first,(*iter).second.second) )
+      continue;
+    Gtk::TreeModel::iterator ri = model->append();
+    Gtk::TreeModel::Row row = *(ri);
+    row[columns.col_name] = (*iter).second.second.c_str();
+    row[columns.col_id] = (*iter).first;
+    row[columns.col_value] = (*iter).second.first.c_str();
+    if( active.first == (*iter).first) cbox.set_active( ri );
+  }
+
 }
