@@ -297,8 +297,8 @@ private:
     float *buffer[2] = {0, 0};
     int bcontinue = 1;
     
-    const float lpass_add = sqrtf(.25f);
-    const float lpass_mult = (1.f / 16.f);
+    const float lpass_add = 8.f/257.f; //sqrtf(.25f);
+    const float lpass_mult =  ( lpass_add * 2.f ); //(1.f / 16.f);
     const float lpass_sub = wd_blend_factor; //.128f;
     
     const int size = wd_width * wd_height * wd_ch;
