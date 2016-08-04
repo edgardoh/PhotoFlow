@@ -52,7 +52,7 @@ class GmicColor
   float r, g, b, a;
 
 public:
-  GmicColor(): r(0), g(0), b(0), a(0)
+  GmicColor(): r(0.f), g(0.f), b(0.f), a(1.f)
   {
   }
   GmicColor(float r1, float g1, float b1, float a1): r(r1), g(g1), b(b1), a(a1)
@@ -129,7 +129,7 @@ inline std::istream& operator >>( std::istream& str, GmicColor& gmfilter )
   gmfilter.set_r( r );
   gmfilter.set_g( g );
   gmfilter.set_b( b );
-  gmfilter.set_b( a );
+  gmfilter.set_a( a );
   
   return str;
 }
@@ -629,6 +629,7 @@ class GmicFilter
   
   std::vector<GmicProperty> m_prop_list;
   std::vector<GmicProperty> m_phf_prop_list;
+  std::vector<GmicArgument> m_arg_list;
 
 protected:
 
@@ -701,18 +702,24 @@ public:
   int get_properties_count() { return m_prop_list.size(); }
   
   GmicProperty& get_property(int n) { return m_prop_list[n]; }
-  int get_property(const std::string& prop_name);
-  bool get_property(const std::string& prop_name, GmicProperty& prop_value);
+  int get_property(const std::string prop_name);
+  bool get_property(const std::string prop_name, GmicProperty& prop_value);
   void set_property(GmicProperty& prop_value);
  
   int get_phf_properties_count() { return m_phf_prop_list.size(); }
 
-  int get_phf_property(const std::string& prop_name);
-  bool get_phf_property(const std::string& prop_name, GmicProperty& prop_value);
+  int get_phf_property(const std::string prop_name);
+  bool get_phf_property(const std::string prop_name, GmicProperty& prop_value);
   void add_phf_property(GmicProperty& prop_value) { m_phf_prop_list.push_back(prop_value); }
 
-  static void parse_arguments(std::string& filter_arguments, std::vector<GmicArgument>& arg_list);
+  static void parse_arguments1(std::string filter_arguments, std::vector<GmicArgument>& arg_list);
+  void parse_arguments();
   
+  int get_arg_list_count() { return m_arg_list.size(); }
+  GmicArgument& get_argument(int n) { return m_arg_list[n]; }
+  int get_argument(const std::string arg_name);
+  bool get_argument(const std::string arg_name, GmicArgument& arg_value);
+
   void create_properties(bool include_const = false);
   
   std::string get_gmic_command(int verbosity_mode);

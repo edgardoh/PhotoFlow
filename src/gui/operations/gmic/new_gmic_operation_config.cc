@@ -105,10 +105,6 @@ PF::OperationConfigGUI* PF::new_gmic_operation_config( std::string op_type, PF::
     dialog = new PF::GmicWatermarkFourierConfigGUI( current_layer );
   } else if( op_type == "gmic_generic_tiled" ) {
     dialog = new PF::GmicGenericConfigGUI( current_layer );
-  } else if( op_type == "gmic_generic_untiled" ) {
-    dialog = new PF::GmicGenericConfigUntiledGUI( current_layer );
-  } else if( op_type == "gmic_generic_untiled2" ) {
-    dialog = new PF::GmicGenericConfigUntiled2GUI( current_layer );
     //insert new operations here
   }
 

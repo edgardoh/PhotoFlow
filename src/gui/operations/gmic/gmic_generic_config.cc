@@ -56,38 +56,50 @@ bool PF::GmicGenericConfigGUI::value_changed_widg_internal(PF::PFWidget* widg, G
   if ( gmic_filter.get_property( widg->get_prop_name(), prop_value) ) {
     if ( prop_value.get_prop_type() == PF::GmicArgument::GmicArgumentType::arg_type_int) {
       Slider *sl = dynamic_cast<Slider*>(widg);
-      prop_value.set_val_int( (int)sl->get_adj_value() );
-      modified = true;
+      if ( prop_value.get_val_int() != (int)sl->get_adj_value() ) {
+        prop_value.set_val_int( (int)sl->get_adj_value() );
+        modified = true;
+      }
     }
     else if ( prop_value.get_prop_type() == PF::GmicArgument::GmicArgumentType::arg_type_float) {
       Slider *sl = dynamic_cast<Slider*>(widg);
-      prop_value.set_val_float( (float)sl->get_adj_value() );
-      modified = true;
+      if ( prop_value.get_val_float() != (float)sl->get_adj_value() ) {
+        prop_value.set_val_float( (float)sl->get_adj_value() );
+        modified = true;
+      }
     }
     else if ( prop_value.get_prop_type() == PF::GmicArgument::GmicArgumentType::arg_type_bool) {
       CheckBox *chk = dynamic_cast<CheckBox*>(widg);
-      prop_value.set_val_int( (int)chk->get_active() );
-      modified = true;
+      if ( prop_value.get_val_int() != (int)chk->get_active() ) {
+        prop_value.set_val_int( (int)chk->get_active() );
+        modified = true;
+      }
     }
     else if ( prop_value.get_prop_type() == PF::GmicArgument::GmicArgumentType::arg_type_choise) {
       Selector *sel = dynamic_cast<Selector*>(widg);
-      prop_value.set_val_int( (int)sel->get_active_row() );
-      modified = true;
+      if ( prop_value.get_val_int() != (int)sel->get_active_row() ) {
+        prop_value.set_val_int( (int)sel->get_active_row() );
+        modified = true;
+      }
     }
     else if ( prop_value.get_prop_type() == PF::GmicArgument::GmicArgumentType::arg_type_text_multi || 
         prop_value.get_prop_type() == PF::GmicArgument::GmicArgumentType::arg_type_text_single) {
       TextBox *txt = dynamic_cast<TextBox*>(widg);
       std::string str;
       txt->get_value( str );
-      prop_value.set_val_str( str );
-      modified = true;
+      if ( str != prop_value.get_val_str() ) {
+        prop_value.set_val_str( str );
+        modified = true;
+      }
     }
     else if ( prop_value.get_prop_type() == PF::GmicArgument::GmicArgumentType::arg_type_color) {
       ColorBtn *btn = dynamic_cast<ColorBtn*>(widg);
       PF::GmicColor color;
       btn->get_color( color );
-      prop_value.set_val_color( color );
-      modified = true;
+      if ( color != prop_value.get_val_color() ) {
+        prop_value.set_val_color( color );
+        modified = true;
+      }
     }
     else {
       std::cout<<"PF::GmicGenericConfigGUI::value_changed_widg() invalid property type: "<<prop_value.get_prop_type()<<std::endl;
@@ -105,32 +117,27 @@ bool PF::GmicGenericConfigGUI::value_changed_widg_internal(PF::PFWidget* widg, G
 bool PF::GmicGenericConfigGUI::value_reset_widg_internal(PF::PFWidget* widg, GmicFilter& gmic_filter)
 {
   bool modified = false;
-  std::string filter_arguments = gmic_filter.get_filter_arguments();
-  std::vector<GmicArgument> arg_list;
   GmicProperty prop_value;
-  int arg_index = -1;
-  
-  GmicFilter::parse_arguments(filter_arguments, arg_list);
-  for ( int i = 0; i < arg_list.size(); i++) {
-    if ( arg_list[i].get_arg_name() == widg->get_prop_name() ) {
-      arg_index = i;
-      break;
-    }
-  }
 
-  if ( arg_index >= 0 ) {
-    GmicArgument& arg_value = arg_list[arg_index];
+  std::cout<<"PF::GmicGenericConfigGUI::value_reset_widg_internal() called "<<std::endl;
+  
+  gmic_filter.parse_arguments();
+
+  GmicArgument arg_value;
+  if ( gmic_filter.get_argument( widg->get_prop_name(), arg_value ) ) {
 
     if ( gmic_filter.get_property( widg->get_prop_name(), prop_value) ) {
       if ( prop_value.get_prop_type() == PF::GmicArgument::GmicArgumentType::arg_type_int) {
         Slider *sl = dynamic_cast<Slider*>(widg);
         prop_value.set_val_int( (int)arg_value.get_val_default() );
+        std::cout<<"PF::GmicGenericConfigGUI::value_reset_widg_internal() prop_value.get_val_int(): "<<prop_value.get_val_int()<<std::endl;
         sl->set_adj_value( (double)prop_value.get_val_int() );
         modified = true;
       }
       else if ( prop_value.get_prop_type() == PF::GmicArgument::GmicArgumentType::arg_type_float) {
         Slider *sl = dynamic_cast<Slider*>(widg);
         prop_value.set_val_float( (float)arg_value.get_val_default() );
+        std::cout<<"PF::GmicGenericConfigGUI::value_reset_widg_internal() prop_value.get_val_float(): "<<prop_value.get_val_float()<<std::endl;
         sl->set_adj_value( (double)prop_value.get_val_float() );
         modified = true;
       }
@@ -163,6 +170,12 @@ bool PF::GmicGenericConfigGUI::value_reset_widg_internal(PF::PFWidget* widg, Gmi
         std::cout<<"PF::GmicGenericConfigGUI::value_reset_widg_internal() invalid property type: "<<prop_value.get_prop_type()<<std::endl;
       }
     }
+    else {
+      std::cout<<"PF::GmicGenericConfigGUI::value_reset_widg_internal() property not found: "<<widg->get_prop_name()<<std::endl;
+    }
+  }
+  else {
+    std::cout<<"PF::GmicGenericConfigGUI::value_reset_widg_internal() argument not found: "<<widg->get_prop_name()<<std::endl;
   }
 
   if ( modified ) {
@@ -221,13 +234,11 @@ void PF::GmicGenericConfigGUI::value_reset_widg(PF::PFWidget* widg)
 
 void PF::GmicGenericConfigGUI::create_controls_internal(GmicFilter& gmf)
 {
-  std::vector<GmicArgument> field_list;
-  std::string arguments = gmf.get_filter_arguments();
   GmicProperty prop_value;
   
-  PF::GmicFilter::parse_arguments(arguments, field_list);
-
-  if ( field_list.size() == 0 ) return;
+  gmf.parse_arguments();
+  
+  if ( gmf.get_arg_list_count() == 0 ) return;
   
   m_controls_created = true;
   
@@ -242,8 +253,8 @@ void PF::GmicGenericConfigGUI::create_controls_internal(GmicFilter& gmf)
   Gtk::LinkButton *linkb;
   ColorBtn *clrbtn;
   
-  for ( int i = 0; i < field_list.size(); i++ ) {
-    GmicArgument& arg = field_list[i];
+  for ( int i = 0; i < gmf.get_arg_list_count(); i++ ) {
+    GmicArgument& arg = gmf.get_argument(i);
     
     bool prop_found = gmf.get_property(arg.get_arg_name(), prop_value);
     

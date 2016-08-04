@@ -120,7 +120,7 @@ void PF::GmicProperty::get_str_value(std::string& str_value)
 // GmicFilter
 // -----------------------------------
 
-int PF::GmicFilter::get_property(const std::string& prop_name)
+int PF::GmicFilter::get_property(const std::string prop_name)
 {
   for ( int i = 0; i < m_prop_list.size(); i++ ) {
     if ( m_prop_list[i].get_prop_name() == prop_name)
@@ -129,7 +129,7 @@ int PF::GmicFilter::get_property(const std::string& prop_name)
   return -1;
 }
 
-int PF::GmicFilter::get_phf_property(const std::string& prop_name)
+int PF::GmicFilter::get_phf_property(const std::string prop_name)
 {
   for ( int i = 0; i < m_phf_prop_list.size(); i++ ) {
     if ( m_phf_prop_list[i].get_prop_name() == prop_name)
@@ -138,7 +138,7 @@ int PF::GmicFilter::get_phf_property(const std::string& prop_name)
   return -1;
 }
 
-bool PF::GmicFilter::get_property(const std::string& prop_name, GmicProperty& prop_value)
+bool PF::GmicFilter::get_property(const std::string prop_name, GmicProperty& prop_value)
 {
   int n = get_property(prop_name);
   if ( n >= 0 ) {
@@ -148,7 +148,7 @@ bool PF::GmicFilter::get_property(const std::string& prop_name, GmicProperty& pr
   return false;
 }
 
-bool PF::GmicFilter::get_phf_property(const std::string& prop_name, GmicProperty& prop_value)
+bool PF::GmicFilter::get_phf_property(const std::string prop_name, GmicProperty& prop_value)
 {
   int n = get_phf_property(prop_name);
   if ( n >= 0 ) {
@@ -167,7 +167,7 @@ void PF::GmicFilter::set_property(GmicProperty& prop_value)
 
 }
 
-void PF::GmicFilter::parse_arguments(std::string& filter_arguments1, std::vector<GmicArgument>& arg_list)
+void PF::GmicFilter::parse_arguments1(std::string filter_arguments1, std::vector<GmicArgument>& arg_list)
 {
   std::string filter_arguments = PF::GmicProperty::quote_gmic(filter_arguments1);
   GmicArgument arg;
@@ -605,15 +605,42 @@ void PF::GmicFilter::parse_arguments(std::string& filter_arguments1, std::vector
 
 }
 
+void PF::GmicFilter::parse_arguments()
+{
+  if ( m_arg_list.size() > 0 ) return;
+  
+  parse_arguments1(get_filter_arguments(), m_arg_list);
+}
+
+int PF::GmicFilter::get_argument(const std::string arg_name)
+{
+  for ( int i = 0; i < m_arg_list.size(); i++ ) {
+    if ( m_arg_list[i].get_arg_name() == arg_name)
+      return i;
+  }
+  return -1;
+}
+
+bool PF::GmicFilter::get_argument(const std::string arg_name, GmicArgument& arg_value)
+{
+  int n = get_argument(arg_name);
+  if ( n >= 0 ) {
+    arg_value = m_arg_list[n];
+    return true;
+  }
+  return false;
+
+}
+
 void PF::GmicFilter::create_properties(bool include_const)
 {
 //  std::cout<<"PF::GmicFilter::create_properties()"<<std::endl;
   if ( m_prop_list.size() > 0 ) return;
   
-  std::string args = get_filter_arguments();
+//  std::string args = get_filter_arguments();
   std::vector<GmicArgument> arg_list;
   
-  parse_arguments(args, arg_list);
+  parse_arguments1(get_filter_arguments(), arg_list);
   
   for (std::vector<GmicArgument>::iterator it=arg_list.begin(); it != arg_list.end(); ++it) {
     GmicProperty prop;
@@ -1104,9 +1131,9 @@ void PF::GmicMenu::load_filters()
 
       bool found = find_match_entry(phf_def_filters, gmic_filter, phf_out);
       if (found) { 
-        phf_args = phf_out.get_filter_arguments();
+//        phf_args = phf_out.get_filter_arguments();
         phf_arg_list.clear();
-        GmicFilter::parse_arguments(phf_args, phf_arg_list);
+        GmicFilter::parse_arguments1(phf_out.get_filter_arguments(), phf_arg_list);
         
         // check all the custom arguments, some are processed here
         for ( int h = 0; h < phf_arg_list.size(); h++ ) {

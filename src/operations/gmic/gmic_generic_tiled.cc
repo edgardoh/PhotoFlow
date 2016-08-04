@@ -72,6 +72,9 @@ VipsImage* PF::GmicGenericTiledPar::build(std::vector<VipsImage*>& in, int first
     return srcimg;
   }
 
+//  std::cout<<"PF::GmicGenericTiledPar::build() called "<<std::endl;
+//  std::cout<<"PF::GmicGenericTiledPar::build() srcimg->Xsize: "<<srcimg->Xsize<<", srcimg->Ysize"<<srcimg->Ysize<<", srcimg->Bands: "<<srcimg->Bands<<std::endl;
+//  std::cout<<"PF::GmicGenericTiledPar::build() command: "<<command<<std::endl;
 
   int target_ch = 0;
   PF::colorspace_t cs = PF::convert_colorspace( get_interpretation() );
@@ -148,7 +151,7 @@ VipsImage* PF::GmicGenericTiledPar::build(std::vector<VipsImage*>& in, int first
     VipsImage* inv[2] = { cached, NULL };
     if( vips_gmic( inv, &iter_out, 1,
                    padding, x_scale,
-                   y_scale,  
+                   y_scale, 
                    cmd.c_str(), NULL ) ) {
       std::cout<<"vips_gmic() failed!!!!!!!"<<std::endl;
       PF_UNREF( cached, "GMicPar::build(): vips_gmic() failed, iter_in unref" );

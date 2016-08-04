@@ -1,5 +1,9 @@
 #@gimp <b>About</b> : phf_exclude(1)
 
+#@gimp Boost-fade : gimp_boost_fade, gimp_boost_fade_preview
+#@gimp : phf_process = const(tiled)
+#@gimp : phf_padding = const(200)
+
 #@gimp Array [random] : array_random, array_random(1)
 #@gimp : phf_exclude = const(1)
 
