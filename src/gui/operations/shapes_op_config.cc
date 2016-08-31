@@ -488,7 +488,7 @@ void PF::ShapesConfigGUI::pt_image2screen(Point& pt)
 //  layer2screen( x, y, w, h );
   pt.set( x, y );
 }
-
+/*
 void PF::ShapesConfigGUI::draw_circle(PF::Point& center, float radius, PF::Point& pt_from, PF::Point& pt_to, 
     PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out)
 {
@@ -574,7 +574,7 @@ void PF::ShapesConfigGUI::draw_circle(PF::Point& center, float radius, PF::Point
   }
 
 }
-
+*/
 void PF::ShapesConfigGUI::draw_shape(Shape* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, 
                                       int hit_t, int hit_additional, int hit_node_selected, bool selected)
 {
@@ -619,7 +619,7 @@ void PF::ShapesConfigGUI::draw_node(int x, int y, PF::PixelBuffer& buf_out, bool
     buf_out.fill( point2, 255, 255, 255 );
   
 }
-
+/*
 void PF::ShapesConfigGUI::draw_dot(Point& pt, PF::PixelBuffer& buf_out, bool active_point)
 {
   const int point_size = 1;
@@ -638,7 +638,7 @@ void PF::ShapesConfigGUI::draw_dot(Point& pt, PF::PixelBuffer& buf_out, bool act
 //    buf_out.fill( point2, 255, 255, 255 );
   
 }
-
+*/
 
 void PF::ShapesConfigGUI::draw_line(Point& pt1, Point& pt2, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool hit_tested, bool selected)
 {
@@ -797,7 +797,7 @@ void PF::ShapesConfigGUI::draw_bezier3(Point& anchor1, Point& anchor2, Point& co
     
     draw_circle(pt1, pen_size, buf_in, buf_out, hit_tested, selected);
 }
-
+/*
 void PF::ShapesConfigGUI::draw_rect(VipsRect* rc, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool selected)
 {
   Point pt1, pt2;
@@ -824,7 +824,7 @@ void PF::ShapesConfigGUI::draw_rect(VipsRect* rc, PF::PixelBuffer& buf_in, PF::P
   draw_line(pt1, pt2, buf_in, buf_out, false, selected);
 
 }
-
+*/
 void PF::ShapesConfigGUI::draw_shape_circle(Circle* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional, bool selected)
 {
   Point pt1, pt2;
@@ -990,7 +990,7 @@ void PF::ShapesConfigGUI::draw_node_control_points(Polygon* shape, PF::PixelBuff
   }
 
 }
-
+/*
 void PF::ShapesConfigGUI::draw_node_control_points_line(Line* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, 
     int node, int cntrl1_selected, int cntrl2_selected, int selected)
 {
@@ -1039,6 +1039,200 @@ void PF::ShapesConfigGUI::draw_node_control_points_line(Line* shape, PF::PixelBu
       std::cout<<"PF::ShapesConfigGUI::draw_node_control_points_line(): invalid node: "<<node<<std::endl;
     }
 }
+*/
+
+void PF::ShapesConfigGUI::draw_polygon_vec(std::vector<Point>& vec_pt, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, 
+    int hit_t, int hit_additional, int hit_node_selected, bool selected)
+{
+  std::cout<<"PF::ShapesConfigGUI::draw_polygon_vec(): vec_pt.size(): "<<vec_pt.size()<<std::endl;
+  //buf_out.draw_line( pt1.x, pt1.y, pt2.x, pt2.y, 0, 0, 255 );
+  
+  Point pt1, pt2;
+  if ( vec_pt.size() > 0 ) {
+    pt1 = vec_pt[0];
+    
+    if (isnan(pt1.x) || isnan(pt1.y)) std::cout<<"PF::ShapesConfigGUI::draw_polygon_vec(): pt is NaN: "<<std::endl;
+    
+    pt_image2screen( pt1 );
+    for ( int i = 1; i < vec_pt.size(); i++) {
+      pt2 = vec_pt[i];
+      if (isnan(pt2.x) || isnan(pt2.y)) std::cout<<"PF::ShapesConfigGUI::draw_polygon_vec(): pt is NaN: "<<std::endl;
+      
+      pt_image2screen( pt2 );
+      draw_line(pt1, pt2, buf_in, buf_out, false, selected);
+      pt1 = pt2;
+    }
+/*    pt2 = vec_pt[0];
+    if (isnan(pt2.x) || isnan(pt2.y)) std::cout<<"PF::ShapesConfigGUI::draw_polygon_vec(): pt is NaN: "<<std::endl;
+    
+    pt_image2screen( pt2 );
+    draw_line(pt1, pt2, buf_in, buf_out, false, selected);*/
+  }
+}
+
+void PF::ShapesConfigGUI::draw_polygon_segment_falloff(std::vector<Point>& points, Point& pt3_first, Point& pt4_prev, bool clockwise, float falloff, 
+    Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, 
+    int hit_t, int hit_additional, int hit_node_selected, bool selected)
+{
+//  std::cout<<"PF::Polygon::fill_polygon_segment_falloff(): clockwise: "<<clockwise<<std::endl;
+  
+//  if ( get_closed_shape() ) {
+  bool closed_shape = true;
+//    bool first, intersects;
+//    int i;
+    std::vector<Point> vec_pt;
+    Point pt1, pt2, pt3, pt4, pt_expand, mid_pt;
+//    Point pts1, pts2;
+//    Point a, b, c, d;
+//    Point b1, c1;
+//    Point pt_end, pt_start, pt_intersection;
+//    SegmentInfo si;
+//    bool clock = is_clockwise();
+//    float pen_size = (get_fill_shape()) ? 0.f: (get_pen_size()/2.f);
+    float expand = falloff;
+    float falloff2 = falloff*falloff;
+    float falloff2_1 = 1.f / falloff2;
+    bool first_time = true;
+
+/*    if ( closed_shape ) {
+      points.push_back( points[0] );
+      
+      pt1 = points.back();
+      int i = points.size()-2;
+      while ( i > 0 && pt1 == points[i] ) i--;
+      if ( i >= 0 ) {
+        get_pt2_proyected_from_segment(points[i], pt1, expand, pt3, pt4);
+        if ( clockwise )
+          pt4_prev = pt3;
+        else
+          pt4_prev = pt4;
+      }
+    }
+    */
+    pt1 = points[0];
+    for (int i = 1; i < points.size(); i++) {
+      pt2 = points[i];
+      if ( pt1 != pt2 ) {
+       
+        if ( clockwise )
+          PF::Polygon::get_pt1_2_proyected_from_segment(pt1, pt2, expand, pt3, pt4);
+        else
+          PF::Polygon::get_pt3_4_proyected_from_segment(pt1, pt2, expand, pt3, pt4);
+        
+        vec_pt.clear();
+        vec_pt.push_back( pt3 );
+        vec_pt.push_back( pt4 );
+//        vec_pt.push_back( pt2 );
+//        vec_pt.push_back( pt1 );
+
+//        fill_segment_falloff(vec_pt, pt1, pt2, falloff2, falloff2_1, opacity, scurve, buffer, rc);
+        draw_polygon_vec(vec_pt, buf_in, buf_out, hit_t, hit_additional, hit_node_selected, selected);
+
+        if ( !first_time ) {
+          vec_pt.clear();
+//          if ( generate_arc_points(pt1, pt4_prev, pt3, vec_pt, clockwise) ) {
+//            vec_pt.push_back( pt1 );
+//            fill_point_falloff(vec_pt, pt1, falloff2, falloff2_1, opacity, scurve, buffer, rc);
+//          }
+          
+          mid_pt.line_mid_point(pt4_prev, pt3);
+//          PF::Polygon::expand_segment_to(pt1, mid_pt, pt_expand, expand);
+          
+          vec_pt.push_back( pt4_prev );
+//          vec_pt.push_back( pt_expand );
+          vec_pt.push_back( pt3 );
+//          vec_pt.push_back( pt1 );
+//            fill_point_falloff(vec_pt, pt1, falloff2, falloff2_1, opacity, scurve, buffer, rc);
+          draw_polygon_vec(vec_pt, buf_in, buf_out, hit_t, hit_additional, hit_node_selected, selected);
+        }
+        else {
+          pt3_first = pt3;
+          first_time = false;
+        }
+
+        pt1 = pt2;
+        pt4_prev = pt4;
+      }
+    }
+
+
+
+    if ( closed_shape ) {
+      points.pop_back();
+    }
+
+}
+
+void PF::ShapesConfigGUI::draw_polygon_falloff2(Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, 
+    int hit_t, int hit_additional, int hit_node_selected, bool selected)
+{
+  if ( shape->get_closed_shape() ) {
+    bool first, intersects;
+    int i;
+    std::vector<Point> vec_pt;
+    Point pt1, pt2;
+    Point pt1_prev, pt2_prev, pt1_first;
+    Point pts1, pts2;
+    Point a, b, c, d;
+    Point pt_end, pt_start, pt_intersection;
+//    Point pt4_prev;
+    SegmentInfo si;
+    bool clock = shape->is_clockwise();
+    float pen_size = (shape->get_fill_shape()) ? 0.f: (shape->get_pen_size()/2.f);
+    float expand = pen_size+shape->get_falloff();
+    bool first_time = true;
+    float falloff2 = shape->get_falloff()*shape->get_falloff();
+    float falloff2_1 = 1.f / falloff2;
+
+    //    std::cout<<"PF::Polygon::get_falloff_points(): clock: "<<clock<<std::endl;
+
+    for (int s = 0; s < shape->get_segments_count(); s++) {
+      shape->get_segment(s, pts1, pts2, si);
+      vec_pt.clear();
+
+      if (si.get_segment_type() == PF::SegmentInfo::line) {
+        vec_pt.push_back(pts1);
+        vec_pt.push_back(pts2);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+        shape->inter_bezier3(pts1, pts2, si.get_control_pt1(), vec_pt);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+        shape->inter_bezier4(pts1, pts2, si.get_control_pt1(), si.get_control_pt2(), vec_pt);
+      }
+      
+//      fill_polygon_segment_falloff(vec_pt, pt1, pt2, clock, expand, get_opacity(), scurve, buffer, rc);
+      draw_polygon_segment_falloff(vec_pt, pt1, pt2, clock, expand, shape, buf_in, buf_out, hit_t, hit_additional, hit_node_selected, selected);
+
+      if ( !first_time ) {
+        vec_pt.clear();
+          if ( shape->generate_arc_points(pts1, pt2_prev, pt1, vec_pt, clock) ) {
+//            vec_pt.push_back( pts1 );
+//            fill_point_falloff(vec_pt, pts1, falloff2, falloff2_1, get_opacity(), scurve, buffer, rc);
+            draw_polygon_vec(vec_pt, buf_in, buf_out, hit_t, hit_additional, hit_node_selected, selected);
+          }
+      }
+      else {
+        pt1_first = pt1;
+        first_time = false;
+      }
+      
+      pt1_prev = pt1;
+      pt2_prev = pt2;
+    }
+
+    vec_pt.clear();
+    shape->get_segment(0, pts1, pts2, si);
+      if ( shape->generate_arc_points(pts1, pt2_prev, pt1_first, vec_pt, clock) ) {
+//        vec_pt.push_back( pts1 );
+//        fill_point_falloff(vec_pt, pts1, falloff2, falloff2_1, get_opacity(), scurve, buffer, rc);
+        draw_polygon_vec(vec_pt, buf_in, buf_out, hit_t, hit_additional, hit_node_selected, selected);
+      }
+
+  }
+
+}
+
 
 void PF::ShapesConfigGUI::draw_shape_polygon(Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, 
                                         int hit_t, int hit_additional, int hit_node_selected, bool selected)
@@ -1151,13 +1345,15 @@ void PF::ShapesConfigGUI::draw_shape_polygon(Polygon* shape, PF::PixelBuffer& bu
     draw_node_control_points(shape, buf_in, buf_out, hit_node_selected, cntrl1_selected, cntrl2_selected, selected);
   }
    
-  if (hit_t != PF::Shape::hit_none) {
+/*  if (hit_t != PF::Shape::hit_none) {
     for (int i = shape->get_points_count()-1; i >= 0 ; i--) {
       draw_node_control_points(shape, buf_in, buf_out, i, cntrl1_selected, cntrl2_selected, selected);
     }
   }
-
-  if ( shape->get_falloff() > 0.f && shape->get_closed_shape() ) {
+*/
+//    draw_polygon_falloff2(shape, buf_in, buf_out, hit_t, hit_additional, hit_node_selected, selected);
+    
+  if ( false && shape->get_falloff() > 0.f && shape->get_closed_shape() ) {
     std::vector<Point> points;
     
     shape->get_falloff_points(points);
@@ -1479,7 +1675,7 @@ bool PF::ShapesConfigGUI::is_shape_selected(int n)
 
   return is_selected;
 }
-
+/*
 void PF::ShapesConfigGUI::adjust_polygon_falloff_point(Polygon* shape, int n)
 {
   Point center, ptf;
@@ -1551,7 +1747,7 @@ void PF::ShapesConfigGUI::defalut_polygon_new_control_point(Polygon* shape, int 
   }
 
 }
-
+*/
 void PF::ShapesConfigGUI::defalut_polygon_last_point( PF::Polygon* shape )
 {
   if (shape->get_segments_count() < 3) { // a polygon has two segments when creating it
@@ -1603,7 +1799,7 @@ void PF::ShapesConfigGUI::defalut_new_polygon(Point& pt, int mod_key )
   defalut_polygon_last_point( &polygon_add );
 
 }
-
+/*
 void PF::ShapesConfigGUI::defalut_line_new_control_point(Line* shape, int hit_t, int node)
 {
   if ( node > 0 && node < shape->get_points_count()-1 ) {
@@ -1621,7 +1817,7 @@ void PF::ShapesConfigGUI::defalut_line_new_control_point(Line* shape, int hit_t,
     }
   }
 }
-
+*/
 void PF::ShapesConfigGUI::defalut_line_last_point( PF::Line* shape )
 {
   if (shape->get_segments_count() == 1) {

@@ -146,20 +146,20 @@ public:
     bool get_rect_rounded() { return rect_rounded_btn.is_active(); }
     void set_rect_rounded(bool b) { rect_rounded_btn.set_active(b); }
     
-    void draw_circle(PF::Point& center, float radius, PF::Point& pt_from, PF::Point& pt_to, 
+/*    void draw_circle(PF::Point& center, float radius, PF::Point& pt_from, PF::Point& pt_to, 
         PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out);
-    
+    */
     void draw_shape(Shape* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional, int hit_node_selected, bool selected);
     void draw_node(int x, int y, PF::PixelBuffer& buf_out, bool active_point);
     
-    void draw_dot(Point& pt, PF::PixelBuffer& buf_out, bool active_point);
+/*    void draw_dot(Point& pt, PF::PixelBuffer& buf_out, bool active_point);
     
-    inline void draw_node(Point& pt, PF::PixelBuffer& buf_out, bool active_point)
+    void draw_node(Point& pt, PF::PixelBuffer& buf_out, bool active_point)
     {
       draw_node(pt.get_x(), pt.get_y(), buf_out, active_point);
     }
     void draw_rect(VipsRect* rc, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool selected);
-
+*/
     void draw_line(Point& pt1, Point& pt2, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool hit_tested, bool selected);
     void draw_line(Point& pt1, Point& pt2, float pen_size, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool hit_tested, bool selected);
     void draw_circle(Point& pt1, int radius, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, bool hit_tested, bool selected);
@@ -175,8 +175,16 @@ public:
     void draw_shape_rectangle(Rectangle* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional, bool selected);
     
     void draw_node_control_points(Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int node, int cntrl1_selected, int cntrl2_selected, int selected);
-    void draw_node_control_points_line(Line* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, 
+/*    void draw_node_control_points_line(Line* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, 
         int node, int cntrl1_selected, int cntrl2_selected, int selected);
+*/
+    void draw_polygon_vec(std::vector<Point>& vec_pt, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, 
+        int hit_t, int hit_additional, int hit_node_selected, bool selected);
+    void draw_polygon_segment_falloff(std::vector<Point>& points, Point& pt3_first, Point& pt4_prev, bool clockwise, float falloff, 
+        Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, 
+        int hit_t, int hit_additional, int hit_node_selected, bool selected);
+    void draw_polygon_falloff2(Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, 
+        int hit_t, int hit_additional, int hit_node_selected, bool selected);
 
     void draw_shape_polygon(Polygon* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional, int hit_node_selected, bool selected);
     void draw_shape_line(Line* shape, PF::PixelBuffer& buf_in, PF::PixelBuffer& buf_out, int hit_t, int hit_additional, int hit_node_selected, bool selected);
@@ -187,13 +195,13 @@ public:
     void add_new_shape(PF::ShapesPar* par, int shape_type, Point& initial_pos, Point& source_pos, int mod_key);
     
     void defalut_new_polygon(Point& pt, int mod_key );
-    void defalut_polygon_new_control_point(Polygon* shape, int hit_t, int node);
+//    void defalut_polygon_new_control_point(Polygon* shape, int hit_t, int node);
     void defalut_polygon_last_point( PF::Polygon* shape );
 
-    void adjust_polygon_falloff_point(Polygon* shape, int n);
+//    void adjust_polygon_falloff_point(Polygon* shape, int n);
     
     void defalut_new_line(Point& pt, int mod_key );
-    void defalut_line_new_control_point(Line* shape, int hit_t, int node);
+//    void defalut_line_new_control_point(Line* shape, int hit_t, int node);
     void defalut_line_last_point( PF::Line* shape );
 
     void shape_expanded(Shape* shape);

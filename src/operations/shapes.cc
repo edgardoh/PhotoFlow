@@ -69,6 +69,18 @@ void PF::Point::scale(float scale)
 }
 
 // Find the distance squared from this to a segment (l1, l2)
+/*
+float PF::Point::distance2segment2(Point& l1, Point& l2)
+{
+  float l = l1.distance2(l2);
+   if (l == 0.f) return distance2(l1);
+   float t = ((this->x - l1.x) * (l2.x - l1.x) + (this->y - l1.y) * (l2.y - l1.y)) / l;
+   t = std::max(0.f, std::min(1.f, t));
+   return distance2( l1.x + t * (l2.x - l1.x),
+                     l1.y + t * (l2.y - l1.y) );
+}
+*/
+
 float PF::Point::distance2segment2(Point& l1, Point& l2)
 {
   float A = this->x - l1.x;
@@ -100,6 +112,7 @@ float PF::Point::distance2segment2(Point& l1, Point& l2)
 
   return (dx * dx + dy * dy);
 }
+
 /*
 // Find the distance squared from this to a bezier curve (l1, l2, l3)
 float PF::Point::distance2bezier32(Point& l1, Point& l2, Point& l3)
@@ -1566,13 +1579,15 @@ void PF::Polygon::fill_polygon(std::vector<Point>& poly_pt, float opacity, float
     bubble_sort(nodeX);
 
     //  Fill the pixels between node pairs.
+    float *buf = buffer + ((pixelY-IMAGE_TOP)*rc.width);
     for (i=0; i<nodeX.size(); i+=2) {
       if   (nodeX[i  ]>=IMAGE_RIGHT) break;
       if   (nodeX[i+1]> IMAGE_LEFT ) {
         if (nodeX[i  ]< IMAGE_LEFT ) nodeX[i  ]=IMAGE_LEFT ;
         if (nodeX[i+1]> IMAGE_RIGHT) nodeX[i+1]=IMAGE_RIGHT;
         for (pixelX=nodeX[i]; pixelX<nodeX[i+1]; pixelX++) {
-          buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = opacity;
+//          buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = opacity;
+          buf[(pixelX-IMAGE_LEFT)] = opacity;
         }
       }
     }
@@ -1580,13 +1595,191 @@ void PF::Polygon::fill_polygon(std::vector<Point>& poly_pt, float opacity, float
 
 }
 
-void PF::Polygon::fill_segment_falloff(std::vector<Point>& poly_pt, Point& pt1, Point& pt2, float falloff2, float falloff2_1, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc)
+// Código bresenham para círculos en C++
+int PF::Polygon::rasterCircle(int x0, int y0, int radius, float* buffer, VipsRect& rc)
 {
-  int  pixelX, pixelY, i, j;
-  float f;
+  const int IMAGE_TOP = rc.top;
+  const int IMAGE_LEFT = rc.left;
+  const int IMAGE_BOT = IMAGE_TOP + rc.height;
+  const int IMAGE_RIGHT = IMAGE_LEFT + rc.width;
+
+  int f = 1 - radius;
+  int ddF_x = 1;
+  int ddF_y = -2 * radius;
+  int x = 0;
+  int y = radius;
+  
+#define TEST_PIXEL(pixelX, pixelY) \
+  if ( (pixelX) >= IMAGE_LEFT && (pixelX) < IMAGE_RIGHT && \
+      (pixelY) >= IMAGE_TOP && (pixelY) < IMAGE_BOT ) {  \
+    if ( buffer[(((pixelY)-IMAGE_TOP)*rc.width)+((pixelX)-IMAGE_LEFT)] == 1.f ) { \
+      return distance2(x0, y0, (pixelX), (pixelY)); \
+    } \
+  } \
+         
+  TEST_PIXEL(x0, y0 + radius);
+  TEST_PIXEL(x0, y0 - radius);
+  TEST_PIXEL(x0 + radius, y0);
+  TEST_PIXEL(x0 - radius, y0);
+  while(x < y) {
+    // ddF_x == 2 * x + 1;
+    // ddF_y == -2 * y;
+    // f == x*x + y*y - radius*radius + 2*x - y + 1;
+    if(f >= 0) {
+      y--;
+      ddF_y += 2;
+      f += ddF_y;
+    }
+    x++;
+    ddF_x += 2;
+    f += ddF_x;
+    TEST_PIXEL(x0 + x, y0 + y);
+    TEST_PIXEL(x0 - x, y0 + y);
+    TEST_PIXEL(x0 + x, y0 - y);
+    TEST_PIXEL(x0 - x, y0 - y);
+    TEST_PIXEL(x0 + y, y0 + x);
+    TEST_PIXEL(x0 - y, y0 + x);
+    TEST_PIXEL(x0 + y, y0 - x);
+    TEST_PIXEL(x0 - y, y0 - x);
+  }
+  
+  return 0;
+}
+
+int PF::Polygon::get_nearest_pixel_distance2(int pixelX, int pixelY, float* buffer, VipsRect& rc)
+{
+//  std::cout<<"PF::Polygon::get_nearest_pixel_distance2() "<<std::endl;
+  
+  const int IMAGE_TOP = rc.top;
+  const int IMAGE_LEFT = rc.left;
+  const int IMAGE_BOT = IMAGE_TOP + rc.height;
+  const int IMAGE_RIGHT = IMAGE_LEFT + rc.width;
+
+  float distance = 0;
+  const int max_radius = std::max(rc.width, rc.height);
+  int incY = 0;
+  float *buf = buffer + ((pixelY-IMAGE_TOP)*rc.width);
+  float *buf_top = NULL;
+  float *buf_bot = NULL;
+  
+  for ( int radius = 1; radius < max_radius; radius++ ) {
+//    std::cout<<"PF::Polygon::get_nearest_pixel_distance2() 1"<<std::endl;
+    
+/*    if ( pixelX+radius < IMAGE_RIGHT && buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)+radius] == 1.f ) {
+      return distance2(pixelX, pixelY, pixelX+radius, pixelY);
+    }
+    if ( pixelX-radius > IMAGE_LEFT && buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)-radius] == 1.f ) {
+      return distance2(pixelX, pixelY, pixelX-radius, pixelY);
+    }
+    if ( pixelY+radius < IMAGE_BOT && buffer[((pixelY-IMAGE_TOP+radius)*rc.width)+(pixelX-IMAGE_LEFT)] == 1.f ) {
+      return distance2(pixelX, pixelY, pixelX, pixelY+radius);
+    }
+    if ( pixelY-radius > IMAGE_TOP && buffer[((pixelY-IMAGE_TOP-radius)*rc.width)+(pixelX-IMAGE_LEFT)] == 1.f ) {
+      return distance2(pixelX, pixelY, pixelX, pixelY-radius);
+    }
+    
+    if ( pixelY-radius > IMAGE_TOP )
+      buf_top = buffer + ((pixelY-IMAGE_TOP-radius)*rc.width);
+    else
+      buf_top = NULL;
+    if ( pixelY+radius < IMAGE_BOT )
+      buf_bot = buffer + ((pixelY-IMAGE_TOP+radius)*rc.width);
+    else
+      buf_bot = NULL;
+    
+//    std::cout<<"PF::Polygon::get_nearest_pixel_distance2() 2"<<std::endl;
+    
+    for ( int i = 1; i <= radius; i++ ) {
+      if ( pixelX+i < IMAGE_RIGHT ) {
+        if ( pixelY-radius > IMAGE_TOP && buf_top[(pixelX-IMAGE_LEFT)+i] == 1.f ) {
+          return distance2(pixelX, pixelY, pixelX+i, pixelY);
+          break;
+        }
+        if ( pixelY+radius < IMAGE_BOT && buf_bot[(pixelX-IMAGE_LEFT)+i] == 1.f ) {
+          return distance2(pixelX, pixelY, pixelX+i, pixelY);
+          break;
+        }
+      }
+      if ( pixelX-i > IMAGE_LEFT ) {
+        if ( pixelY-radius > IMAGE_TOP && buf_top[(pixelX-IMAGE_LEFT)-i] == 1.f ) {
+          return distance2(pixelX, pixelY, pixelX-i, pixelY);
+          break;
+        }
+        if ( pixelY+radius < IMAGE_BOT && buf_bot[(pixelX-IMAGE_LEFT)-i] == 1.f ) {
+          return distance2(pixelX, pixelY, pixelX-i, pixelY);
+          break;
+        }
+      }
+      incY += rc.width;
+      if ( pixelY+incY < IMAGE_BOT ) {
+        if ( pixelY+radius < IMAGE_BOT && buffer[((pixelY-IMAGE_TOP+incY)*rc.width)+(pixelX-IMAGE_LEFT)+radius] == 1.f ) {
+          return distance2(pixelX, pixelY, pixelX+radius, pixelY+incY);
+          break;
+        }
+        if ( pixelX-radius > IMAGE_LEFT && buffer[((pixelY-IMAGE_TOP+incY)*rc.width)+(pixelX-IMAGE_LEFT)-radius] == 1.f ) {
+          return distance2(pixelX, pixelY, pixelX-radius, pixelY+incY);
+          break;
+        }
+      }
+      if ( pixelY-incY > IMAGE_TOP ) {
+        if ( pixelY+radius < IMAGE_BOT && buffer[((pixelY-IMAGE_TOP-incY)*rc.width)+(pixelX-IMAGE_LEFT)+radius] == 1.f ) {
+          return distance2(pixelX, pixelY, pixelX+radius, pixelY-incY);
+          break;
+        }
+        if ( pixelX-radius > IMAGE_LEFT && buffer[((pixelY-IMAGE_TOP-incY)*rc.width)+(pixelX-IMAGE_LEFT)-radius] == 1.f ) {
+          return distance2(pixelX, pixelY, pixelX-radius, pixelY-incY);
+          break;
+        }
+      }
+    }
+    */
+    distance = rasterCircle(pixelX, pixelY, radius, buffer, rc);
+    if ( distance > 0 ) return distance;
+  }
+  
+//  std::cout<<"PF::Polygon::get_nearest_pixel_distance2() end"<<std::endl;
+  
+  return distance;
+}
+
+float PF::Point::distance2polygon2(std::vector<Point>& poly_pt)
+{
+  float dist2 = 999999;
+  float d;
+  
+  Point pt1, pt2;
+  
+  pt1 = poly_pt[0];
+  for (int i = 1; i < poly_pt.size(); i++) {
+    pt2 = poly_pt[i];
+    if ( pt1 != pt2 ) {
+      d = distance2segment2(pt1, pt2);
+      if ( d < dist2 ) dist2 = d;
+      
+      pt1 = pt2;
+    }
+  }
+  pt2 = poly_pt[0];
+  if ( pt1 != pt2 ) {
+    d = distance2segment2(pt1, pt2);
+    if ( d < dist2 ) dist2 = d;
+    
+    pt1 = pt2;
+  }
+
+  return dist2;
+}
+
+void PF::Polygon::fill_polygon_falloff3(std::vector<Point>& poly_pt, float falloff, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc)
+{
+  std::cout<<"PF::Polygon::fill_polygon_falloff3() "<<std::endl;
   Point pt;
+  int  pixelX, pixelY, i, j;
   const int polyCorners = poly_pt.size();
   std::vector<int> nodeX;
+  float f;
+  float falloff2 = falloff*falloff;
+  float falloff2_1 = 1.f / falloff2;
 
   const int IMAGE_TOP = rc.top;
   const int IMAGE_LEFT = rc.left;
@@ -1621,21 +1814,205 @@ void PF::Polygon::fill_segment_falloff(std::vector<Point>& poly_pt, Point& pt1, 
     bubble_sort(nodeX);
 
     //  Fill the pixels between node pairs.
+    float *buf = buffer + ((pixelY-IMAGE_TOP)*rc.width);
+    
+    const int vec_size = nodeX.size();
+    
+    std::cout<<"PF::Polygon::fill_polygon_falloff3() vec_size: "<<vec_size<<std::endl;
+    
+    if ( vec_size > 0 ) {
+      i = 0;
+      nodeX[i] = std::min(nodeX[i], IMAGE_RIGHT-1);
+      for (pixelX = IMAGE_LEFT; pixelX <= nodeX[i]; pixelX++) {
+        pt.set(pixelX, pixelY);
+        f = pt.distance2polygon2(poly_pt);
+//        f = get_nearest_pixel_distance2(pixelX, pixelY, buffer, rc);
+        if ( f <= falloff2 ) {
+          f = scurve.get_value( 1.f - (f*falloff2_1) ) * opacity;
+          buf[(pixelX-IMAGE_LEFT)] = f;
+        }
+      }
+    }
+    else {
+      for (pixelX = IMAGE_LEFT; pixelX < IMAGE_RIGHT; pixelX++) {
+        pt.set(pixelX, pixelY);
+        f = pt.distance2polygon2(poly_pt);
+//        f = get_nearest_pixel_distance2(pixelX, pixelY, buffer, rc);
+        if ( f <= falloff2 ) {
+          f = scurve.get_value( 1.f - (f*falloff2_1) ) * opacity;
+          buf[(pixelX-IMAGE_LEFT)] = f;
+        }
+      }
+    }
+    std::cout<<"PF::Polygon::fill_polygon_falloff3() 2"<<std::endl;
+    
+    for (i=1; i<vec_size-2; i+=2) {
+      if   (nodeX[i  ]>=IMAGE_RIGHT) break;
+      if   (nodeX[i+1]>= IMAGE_LEFT ) {
+        if (nodeX[i  ]< IMAGE_LEFT ) nodeX[i  ]=IMAGE_LEFT ;
+        if (nodeX[i+1]>= IMAGE_RIGHT) nodeX[i+1]=IMAGE_RIGHT-1;
+        for (pixelX=nodeX[i]; pixelX<=nodeX[i+1]; pixelX++) {
+          pt.set(pixelX, pixelY);
+          f = pt.distance2polygon2(poly_pt);
+//          f = get_nearest_pixel_distance2(pixelX, pixelY, buffer, rc);
+          if ( f <= falloff2 ) {
+            f = scurve.get_value( 1.f - (f*falloff2_1) ) * opacity;
+            buf[(pixelX-IMAGE_LEFT)] = f;
+          }
+        }
+      }
+    }
+    
+    std::cout<<"PF::Polygon::fill_polygon_falloff3() 3"<<std::endl;
+    
+    i = vec_size-1;
+    if ( i > 0 ) {
+      nodeX[i] = std::max(nodeX[i], IMAGE_LEFT);
+      for (pixelX = nodeX[i]; pixelX < IMAGE_RIGHT; pixelX++) {
+        pt.set(pixelX, pixelY);
+        f = pt.distance2polygon2(poly_pt);
+//        f = get_nearest_pixel_distance2(pixelX, pixelY, buffer, rc);
+        if ( f <= falloff2 ) {
+          f = scurve.get_value( 1.f - (f*falloff2_1) ) * opacity;
+          buf[(pixelX-IMAGE_LEFT)] = f;
+        }
+      }
+    }
+  }
+  std::cout<<"PF::Polygon::fill_polygon_falloff3() end"<<std::endl;
+
+}
+
+void PF::Polygon::fill_segment_falloff(std::vector<Point>& poly_pt, Point& pt1, Point& pt2, float falloff2, float falloff2_1, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc)
+{
+  int  pixelX, pixelY, i, j;
+  float f;
+  Point pt;
+  const int polyCorners = poly_pt.size();
+  std::vector<int> nodeX;
+  
+  const int IMAGE_TOP = rc.top;
+  const int IMAGE_LEFT = rc.left;
+  const int IMAGE_BOT = IMAGE_TOP + rc.height;
+  const int IMAGE_RIGHT = IMAGE_LEFT + rc.width;
+  
+  int y_from = IMAGE_BOT;
+  int y_to = IMAGE_TOP;
+  for ( int ii = 0; ii < poly_pt.size(); ii++ ) {
+    y_from = std::min(y_from, (int)poly_pt[ii].y);
+    y_to = std::max(y_to, (int)poly_pt[ii].y);
+  }
+  y_from = std::max(y_from, IMAGE_TOP);
+  y_to = std::min(y_to+1, IMAGE_BOT);
+  
+  //  Loop through the rows of the image.
+  for (pixelY=y_from; pixelY<y_to; pixelY++) {
+
+    //  Build a list of nodes.
+        nodeX.clear();
+    j=polyCorners-1;
+    for (i=0; i<polyCorners; i++) {
+      if ( (poly_pt[i].y<(float) pixelY && poly_pt[j].y>=(float) pixelY)
+      ||  (poly_pt[j].y<(float) pixelY && poly_pt[i].y>=(float) pixelY) ) {
+        nodeX.push_back( (int) ( poly_pt[i].x + ((float)(pixelY-poly_pt[i].y) / (float)(poly_pt[j].y-poly_pt[i].y)) 
+        * (float)(poly_pt[j].x-poly_pt[i].x) ) ); 
+      }
+      j=i; 
+    }
+
+    //  Sort the nodes, via a simple “Bubble” sort.
+    bubble_sort(nodeX);
+
+    //  Fill the pixels between node pairs.
+    
+    float *buf = buffer + ((pixelY-IMAGE_TOP)*rc.width);
     for (i=0; i<nodeX.size(); i+=2) {
       if   (nodeX[i  ]>=IMAGE_RIGHT) break;
       if   (nodeX[i+1]> IMAGE_LEFT ) {
         if (nodeX[i  ]< IMAGE_LEFT ) nodeX[i  ]=IMAGE_LEFT ;
         if (nodeX[i+1]> IMAGE_RIGHT) nodeX[i+1]=IMAGE_RIGHT;
         for (pixelX=nodeX[i]; pixelX<nodeX[i+1]; pixelX++) {
-          pt.set(pixelX, pixelY);
-          f = pt.distance2segment2(pt1, pt2);
-          if ( f <= falloff2 ) {
-            f = scurve.get_value( 1.f - (f*falloff2_1) ) * opacity;
-            buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = std::max( f, buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] );
+          if ( buf[(pixelX-IMAGE_LEFT)] < 1.f ) {
+            pt.set(pixelX, pixelY);
+            f = pt.distance2segment2(pt1, pt2);
+            if ( f <= falloff2 ) {
+              f = scurve.get_value( 1.f - (f*falloff2_1) ) * opacity;
+  //            f = ( 1.f - (f*falloff2_1) ) * opacity;
+  //            buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = std::max( f, buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] );
+              buf[(pixelX-IMAGE_LEFT)] = std::max( f, buf[(pixelX-IMAGE_LEFT)] );
+            }
           }
         }
       }
     }
+ 
+  }
+
+}
+
+void PF::Polygon::fill_point_falloff(std::vector<Point>& poly_pt, Point& pt1, float falloff2, float falloff2_1, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc)
+{
+  int  pixelX, pixelY, i, j;
+  float f;
+  Point pt;
+  const int polyCorners = poly_pt.size();
+  std::vector<int> nodeX;
+  
+  const int IMAGE_TOP = rc.top;
+  const int IMAGE_LEFT = rc.left;
+  const int IMAGE_BOT = IMAGE_TOP + rc.height;
+  const int IMAGE_RIGHT = IMAGE_LEFT + rc.width;
+  
+  int y_from = IMAGE_BOT;
+  int y_to = IMAGE_TOP;
+  for ( int ii = 0; ii < poly_pt.size(); ii++ ) {
+    y_from = std::min(y_from, (int)poly_pt[ii].y);
+    y_to = std::max(y_to, (int)poly_pt[ii].y);
+  }
+  y_from = std::max(y_from, IMAGE_TOP);
+  y_to = std::min(y_to+1, IMAGE_BOT);
+  
+  //  Loop through the rows of the image.
+  for (pixelY=y_from; pixelY<y_to; pixelY++) {
+
+    //  Build a list of nodes.
+        nodeX.clear();
+    j=polyCorners-1;
+    for (i=0; i<polyCorners; i++) {
+      if ( (poly_pt[i].y<(float) pixelY && poly_pt[j].y>=(float) pixelY)
+      ||  (poly_pt[j].y<(float) pixelY && poly_pt[i].y>=(float) pixelY) ) {
+        nodeX.push_back( (int) ( poly_pt[i].x + ((float)(pixelY-poly_pt[i].y) / (float)(poly_pt[j].y-poly_pt[i].y)) 
+        * (float)(poly_pt[j].x-poly_pt[i].x) ) ); 
+      }
+      j=i; 
+    }
+
+    //  Sort the nodes, via a simple “Bubble” sort.
+    bubble_sort(nodeX);
+
+    //  Fill the pixels between node pairs.
+    
+    float *buf = buffer + ((pixelY-IMAGE_TOP)*rc.width);
+    for (i=0; i<nodeX.size(); i+=2) {
+      if   (nodeX[i  ]>=IMAGE_RIGHT) break;
+      if   (nodeX[i+1]> IMAGE_LEFT ) {
+        if (nodeX[i  ]< IMAGE_LEFT ) nodeX[i  ]=IMAGE_LEFT ;
+        if (nodeX[i+1]> IMAGE_RIGHT) nodeX[i+1]=IMAGE_RIGHT;
+        for (pixelX=nodeX[i]; pixelX<nodeX[i+1]; pixelX++) {
+          if ( buf[(pixelX-IMAGE_LEFT)] < 1.f ) {
+            pt.set(pixelX, pixelY);
+            f = pt.distance2(pt1);
+            if ( f <= falloff2 ) {
+              f = scurve.get_value( 1.f - (f*falloff2_1) ) * opacity;
+  //            f = ( 1.f - (f*falloff2_1) ) * opacity;
+  //            buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = std::max( f, buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] );
+              buf[(pixelX-IMAGE_LEFT)] = std::max( f, buf[(pixelX-IMAGE_LEFT)] );
+            }
+          }
+        }
+      }
+    }
+ 
   }
 
 }
@@ -1702,13 +2079,15 @@ void PF::Polygon::draw_segment(std::vector<Point>& poly_pt_in, std::vector<Point
     bubble_sort(nodeX_out);
 
     //  Fill the pixels between node pairs.
+    float *buf = buffer + ((pixelY-IMAGE_TOP)*rc.width);
     for (i=0; i<nodeX_in.size(); i+=2) {
       if   (nodeX_in[i  ]>=IMAGE_RIGHT) break;
       if   (nodeX_in[i+1]> IMAGE_LEFT ) {
         if (nodeX_in[i  ]< IMAGE_LEFT ) nodeX_in[i  ]=IMAGE_LEFT ;
         if (nodeX_in[i+1]> IMAGE_RIGHT) nodeX_in[i+1]=IMAGE_RIGHT;
         for (pixelX=nodeX_in[i]; pixelX<nodeX_in[i+1]; pixelX++) {
-          buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = opacity;
+//          buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = opacity;
+          buf[(pixelX-IMAGE_LEFT)] = opacity;
         }
       }
     }
@@ -1724,11 +2103,13 @@ void PF::Polygon::draw_segment(std::vector<Point>& poly_pt_in, std::vector<Point
           pt.set(pixelX, pixelY);
           f = pt.distance2segment2(pt1, pt2);
           if ( f <= pen_size2 ) {
-            buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = opacity;
+//            buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = opacity;
+            buf[(pixelX-IMAGE_LEFT)] = opacity;
           }
           else if ( f <= falloff2 ) {
             f = scurve.get_value( 1.f - ((f-pen_size2)*falloff2_1) ) * opacity;
-            buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = std::max( f, buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] );
+//            buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] = std::max( f, buffer[((pixelY-IMAGE_TOP)*rc.width)+(pixelX-IMAGE_LEFT)] );
+            buf[(pixelX-IMAGE_LEFT)] = std::max( f, buf[(pixelX-IMAGE_LEFT)] );
           }
         }
       }
@@ -1737,6 +2118,255 @@ void PF::Polygon::draw_segment(std::vector<Point>& poly_pt_in, std::vector<Point
 
 }
 
+void PF::Polygon::fill_polygon_falloff2(SplineCurve& scurve, float* buffer, VipsRect& rc)
+{
+  if ( get_closed_shape() ) {
+    bool first, intersects;
+    int i;
+    std::vector<Point> vec_pt;
+    Point pt1, pt2;
+    Point pt1_prev, pt2_prev, pt1_first;
+    Point pts1, pts2;
+    Point a, b, c, d;
+    Point pt_end, pt_start, pt_intersection;
+//    Point pt4_prev;
+    SegmentInfo si;
+    bool clock = is_clockwise();
+    float pen_size = (get_fill_shape()) ? 0.f: (get_pen_size()/2.f);
+    float expand = pen_size+get_falloff();
+    bool first_time = true;
+    float falloff2 = get_falloff()*get_falloff();
+    float falloff2_1 = 1.f / falloff2;
+
+    //    std::cout<<"PF::Polygon::get_falloff_points(): clock: "<<clock<<std::endl;
+
+/*    get_segment(get_segments_count()-1, pts1, pts2, si);
+    get_pt2_proyected_from_segment(pts1, pts2, expand, pt1, pt2);
+    if ( clock )
+      pt4_prev = pt1;
+    else
+      pt4_prev = pt2;
+*/
+    for (int s = 0; s < get_segments_count(); s++) {
+      get_segment(s, pts1, pts2, si);
+      vec_pt.clear();
+
+      if (si.get_segment_type() == PF::SegmentInfo::line) {
+        vec_pt.push_back(pts1);
+        vec_pt.push_back(pts2);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier3_l || si.get_segment_type() == PF::SegmentInfo::bezier3_r) {
+        inter_bezier3(pts1, pts2, si.get_control_pt1(), vec_pt);
+      }
+      else if (si.get_segment_type() == PF::SegmentInfo::bezier4) {
+        inter_bezier4(pts1, pts2, si.get_control_pt1(), si.get_control_pt2(), vec_pt);
+      }
+      
+      fill_polygon_segment_falloff(vec_pt, pt1, pt2, clock, expand, get_opacity(), scurve, buffer, rc);
+
+      if ( !first_time ) {
+        vec_pt.clear();
+          if ( generate_arc_points(pts1, pt2_prev, pt1, vec_pt, clock) ) {
+            vec_pt.push_back( pts1 );
+            fill_point_falloff(vec_pt, pts1, falloff2, falloff2_1, get_opacity(), scurve, buffer, rc);
+          }
+      }
+      else {
+        pt1_first = pt1;
+        first_time = false;
+      }
+      
+      pt1_prev = pt1;
+      pt2_prev = pt2;
+    }
+
+    vec_pt.clear();
+    get_segment(0, pts1, pts2, si);
+      if ( generate_arc_points(pts1, pt2_prev, pt1_first, vec_pt, clock) ) {
+        vec_pt.push_back( pts1 );
+        fill_point_falloff(vec_pt, pts1, falloff2, falloff2_1, get_opacity(), scurve, buffer, rc);
+      }
+
+  }
+
+}
+
+
+
+void PF::Polygon::fill_polygon_segment_falloff(std::vector<Point>& points, Point& pt3_first, Point& pt4_prev, bool clockwise, float falloff, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc)
+{
+//  std::cout<<"PF::Polygon::fill_polygon_segment_falloff(): clockwise: "<<clockwise<<std::endl;
+  
+//  if ( get_closed_shape() ) {
+  bool closed_shape = true;
+//    bool first, intersects;
+//    int i;
+    std::vector<Point> vec_pt;
+    Point pt1, pt2, pt3, pt4, pt_expand, mid_pt;
+//    Point pts1, pts2;
+//    Point a, b, c, d;
+//    Point b1, c1;
+//    Point pt_end, pt_start, pt_intersection;
+//    SegmentInfo si;
+//    bool clock = is_clockwise();
+//    float pen_size = (get_fill_shape()) ? 0.f: (get_pen_size()/2.f);
+    float expand = falloff;
+    float falloff2 = falloff*falloff;
+    float falloff2_1 = 1.f / falloff2;
+    bool first_time = true;
+
+/*    if ( closed_shape ) {
+      points.push_back( points[0] );
+      
+      pt1 = points.back();
+      int i = points.size()-2;
+      while ( i > 0 && pt1 == points[i] ) i--;
+      if ( i >= 0 ) {
+        get_pt2_proyected_from_segment(points[i], pt1, expand, pt3, pt4);
+        if ( clockwise )
+          pt4_prev = pt3;
+        else
+          pt4_prev = pt4;
+      }
+    }
+    */
+    pt1 = points[0];
+    for (int i = 1; i < points.size(); i++) {
+      pt2 = points[i];
+      if ( pt1 != pt2 ) {
+       
+        if ( clockwise )
+          get_pt1_2_proyected_from_segment(pt1, pt2, expand, pt3, pt4);
+        else
+          get_pt3_4_proyected_from_segment(pt1, pt2, expand, pt3, pt4);
+        
+        vec_pt.clear();
+        vec_pt.push_back( pt3 );
+        vec_pt.push_back( pt4 );
+        vec_pt.push_back( pt2 );
+        vec_pt.push_back( pt1 );
+
+        fill_segment_falloff(vec_pt, pt1, pt2, falloff2, falloff2_1, opacity, scurve, buffer, rc);
+
+        if ( !first_time ) {
+          vec_pt.clear();
+//          if ( generate_arc_points(pt1, pt4_prev, pt3, vec_pt, clockwise) ) {
+//            vec_pt.push_back( pt1 );
+//            fill_point_falloff(vec_pt, pt1, falloff2, falloff2_1, opacity, scurve, buffer, rc);
+//          }
+          
+          mid_pt.line_mid_point(pt4_prev, pt3);
+          expand_segment(pt1, mid_pt, pt_expand, expand);
+          
+          vec_pt.push_back( pt4_prev );
+          vec_pt.push_back( pt_expand );
+          vec_pt.push_back( pt3 );
+          vec_pt.push_back( pt1 );
+            fill_point_falloff(vec_pt, pt1, falloff2, falloff2_1, opacity, scurve, buffer, rc);
+        }
+        else {
+          pt3_first = pt3;
+          first_time = false;
+        }
+
+        pt1 = pt2;
+        pt4_prev = pt4;
+      }
+    }
+
+
+
+    if ( closed_shape ) {
+      points.pop_back();
+    }
+
+}
+
+void PF::Polygon::fill_polygon_falloff(std::vector<Point>& points, bool clockwise, float falloff, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc)
+{
+//  std::cout<<"PF::Polygon::fill_polygon_falloff(): clockwise: "<<clockwise<<std::endl;
+  
+//  if ( get_closed_shape() ) {
+  bool closed_shape = true;
+//    bool first, intersects;
+//    int i;
+    std::vector<Point> vec_pt;
+    Point pt1, pt2, pt3, pt4, pt4_prev, pt_expand, mid_pt;
+//    Point pts1, pts2;
+//    Point a, b, c, d;
+//    Point b1, c1;
+//    Point pt_end, pt_start, pt_intersection;
+//    SegmentInfo si;
+//    bool clock = is_clockwise();
+//    float pen_size = (get_fill_shape()) ? 0.f: (get_pen_size()/2.f);
+    float expand = falloff;
+    float falloff2 = falloff*falloff;
+    float falloff2_1 = 1.f / falloff2;
+
+    if ( closed_shape ) {
+      points.push_back( points[0] );
+      
+      pt1 = points.back();
+      int i = points.size()-2;
+      while ( i > 0 && pt1 == points[i] ) i--;
+      if ( i >= 0 ) {
+        get_pt2_proyected_from_segment(points[i], pt1, expand, pt3, pt4);
+        if ( clockwise )
+          pt4_prev = pt3;
+        else
+          pt4_prev = pt4;
+      }
+    }
+    
+    pt1 = points[0];
+    for (int i = 1; i < points.size(); i++) {
+      pt2 = points[i];
+      if ( pt1 != pt2 ) {
+       
+        if ( clockwise )
+          get_pt1_2_proyected_from_segment(pt1, pt2, expand, pt3, pt4);
+        else
+          get_pt3_4_proyected_from_segment(pt1, pt2, expand, pt3, pt4);
+        
+        vec_pt.clear();
+        vec_pt.push_back( pt3 );
+        vec_pt.push_back( pt4 );
+        vec_pt.push_back( pt2 );
+        vec_pt.push_back( pt1 );
+
+        fill_segment_falloff(vec_pt, pt1, pt2, falloff2, falloff2_1, opacity, scurve, buffer, rc);
+
+          vec_pt.clear();
+//          if ( generate_arc_points(pt1, pt4_prev, pt3, vec_pt, clockwise) ) {
+//            vec_pt.push_back( pt1 );
+//            fill_point_falloff(vec_pt, pt1, falloff2, falloff2_1, opacity, scurve, buffer, rc);
+//          }
+          
+          mid_pt.line_mid_point(pt4_prev, pt3);
+          expand_segment_to(pt1, mid_pt, pt_expand, expand);
+          
+          vec_pt.push_back( pt4_prev );
+          vec_pt.push_back( pt_expand );
+          vec_pt.push_back( pt3 );
+          vec_pt.push_back( pt1 );
+            fill_point_falloff(vec_pt, pt1, falloff2, falloff2_1, opacity, scurve, buffer, rc);
+          
+
+        pt1 = pt2;
+        pt4_prev = pt4;
+      }
+    }
+
+
+
+    if ( closed_shape ) {
+      points.pop_back();
+    }
+
+}
+
+
+/*
 void PF::Polygon::fill_polygon_falloff(std::vector<Point>& points, float falloff, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc)
 {
   Point pt1, pt2, pt3, b, c;
@@ -1784,7 +2414,7 @@ void PF::Polygon::fill_polygon_falloff(std::vector<Point>& points, float falloff
   }
   
 }
-
+*/
 void PF::Polygon::draw_polygon_segments(std::vector<Point>& points, float pen_size, float falloff, float opacity, bool closed_shape, SplineCurve& scurve, float* buffer, VipsRect& rc)
 {
   Point pt1, pt2, pt3, a, b, c, d;
@@ -1861,7 +2491,7 @@ void PF::Polygon::inter_bezier3(Point& anchor1, Point& anchor2, Point& control, 
   curve3_div curve3;
   curve3.init(anchor1.x, anchor1.y, control.x, control.y, anchor2.x, anchor2.y);
   for (int i = 0; i < curve3.m_points.size(); i++) points.push_back(curve3.m_points[i]);
-  return;
+/*  return;
   
   Point pt1, pt2;
   float step = 1.f/100.f;
@@ -1880,7 +2510,7 @@ void PF::Polygon::inter_bezier3(Point& anchor1, Point& anchor2, Point& control, 
   
   //As a final step, make sure the curve ends on the second anchor
 //  points.push_back(anchor2);
-  
+  */
 }
 
 void PF::Polygon::inter_bezier4(Point& anchor1, Point& anchor2, Point& control1, Point& control2, std::vector<Point>& points)
@@ -1888,7 +2518,7 @@ void PF::Polygon::inter_bezier4(Point& anchor1, Point& anchor2, Point& control1,
   curve4_div curve4;
   curve4.init(anchor1.x, anchor1.y, control1.x, control1.y, control2.x, control2.y, anchor2.x, anchor2.y);
   for (int i = 0; i < curve4.m_points.size(); i++) points.push_back(curve4.m_points[i]);
-  return;
+/*  return;
 
   
   Point pt1, pt2;
@@ -1908,7 +2538,7 @@ void PF::Polygon::inter_bezier4(Point& anchor1, Point& anchor2, Point& control1,
   
   //As a final step, make sure the curve ends on the second anchor
 //  points.push_back(anchor2);
-  
+  */
 }
 
 // return a vector with all segments points
@@ -1947,7 +2577,6 @@ int PF::Polygon::FindLR( std::vector<Point>& poly )
   min.y = poly[0].y;
   m = 0;
 
-//  cout << "FindLR:";
   for( int i = 0; i < poly.size(); i++ ) {
     if( (poly[i].y < min.y) ||
         ( (poly[i].y == min.y) && (poly[i].x > min.x) )
@@ -1956,9 +2585,8 @@ int PF::Polygon::FindLR( std::vector<Point>& poly )
       min.x = poly[m].x;
       min.y = poly[m].y;
     }
-    //cout << "i=" << i << " m=" << m;
   }
-//  cout << " min = " << min[X] << ", " << min[Y] << endl;
+
   return m;
 }
 
@@ -1970,8 +2598,6 @@ int PF::Polygon::Ccw( std::vector<Point>& poly, int m )
   Point a, b, c; //Just renaming
 
   m1 = circ_idx(m-1, poly.size()); //= m - 1
-  //cout << "m=" << m << ", m1=" << m1 << endl;
-  // assign a[0] to point to poly[m1][0] etc.
 
   a.x = poly[m1].x;
   b.x = poly[m].x;
@@ -1986,7 +2612,7 @@ int PF::Polygon::Ccw( std::vector<Point>& poly, int m )
                 a.x * b.y - a.y * b.x +
                 a.y * c.x - a.x * c.y +
                 b.x * c.y - c.x * b.y;
-//  cout << "Ccw: area = " << area2 << endl;
+
   if ( area2 > 0 )
     return 1;
   else if ( area2 < 0 )
@@ -2007,7 +2633,11 @@ bool PF::Polygon::generate_arc_points(Point& cmax, Point& bmin, /*Point& bmin2,*
   // we want to find the start and end angles
   double a1 = atan2(bmin.y - cmax.y, bmin.x - cmax.x);
   double a2 = atan2(bmax.y - cmax.y, bmax.x - cmax.x);
-  if(a1 == a2) return false;
+  if(a1 == a2) {
+    points.push_back(bmin);
+    points.push_back(bmax);
+    return true;
+  }
 
   // we have to be sure that we turn in the correct direction
   if(a2 < a1 && clockwise)
@@ -2019,11 +2649,16 @@ bool PF::Polygon::generate_arc_points(Point& cmax, Point& bmin, /*Point& bmin2,*
     a1 += 2 * M_PI;
   }
 
+
 //  std::cout<<"PF::Polygon::generate_arc_points(): a1: "<<a1<<", a2: "<<a2<<std::endl;
-  if ( abs(a2-a1) > (M_PI*1.f) ) {
+  if ( std::abs(a2-a1) > (M_PI) ) {
 //    std::cout<<"PF::Polygon::generate_arc_points(): abs(a2-a1) > (M_PI*1.f): "<<abs(a2-a1)<<", > (M_PI*1.f): "<<(M_PI*1.f)<<std::endl;
+    points.push_back(bmin);
+    points.push_back(bmax);
+//    return true;
     return false;
   }
+
   
   // we determine start and end radius too
   float r1 = sqrtf((bmin.y - cmax.y) * (bmin.y - cmax.y) + (bmin.x - cmax.x) * (bmin.x - cmax.x));
@@ -2035,13 +2670,20 @@ bool PF::Polygon::generate_arc_points(Point& cmax, Point& bmin, /*Point& bmin2,*
     l = (a2 - a1) * fmaxf(r1, r2);
   else
     l = (a1 - a2) * fmaxf(r1, r2);
-  if(l < 2) return false;
+  if(l < 2) // return false;
+  {
+    points.push_back(bmin);
+    points.push_back(bmax);
+    return true;
+  }
 
   // and now we add the points
   float incra = (a2 - a1) / l;
   float incrr = (r2 - r1) / l;
   float rr = r1 + incrr;
   float aa = a1 + incra;
+  
+  points.push_back(bmin);
   for(int i = 1; i < l; i++)
   {
     pt.set( cmax.x + rr * cosf(aa), cmax.y + rr * sinf(aa));
@@ -2049,6 +2691,7 @@ bool PF::Polygon::generate_arc_points(Point& cmax, Point& bmin, /*Point& bmin2,*
     rr += incrr;
     aa += incra;
   }
+  points.push_back(bmax);
   
   return true;
 }
@@ -2760,6 +3403,17 @@ void PF::Polygon::expand_segment(Point& pt1, Point& pt2, Point& pt3, float lengt
   pt3.y = pt2.y + y;
 }
 
+void PF::Polygon::expand_segment_to(Point& pt1, Point& pt2, Point& pt3, float length_to)
+{
+  float lenAB = std::sqrt( ((pt1.x-pt2.x)*(pt1.x-pt2.x)) + ((pt1.y-pt2.y)*(pt1.y-pt2.y)) );
+  length_to -= lenAB;
+  float f = length_to / lenAB;
+  float x =  (float)(pt2.x - pt1.x) * f;
+  float y =  (float)(pt2.y - pt1.y) * f;
+  pt3.x = pt2.x + x;
+  pt3.y = pt2.y + y;
+}
+
 void PF::Polygon::synch_control_point(Point& anchor, Point& cntrl_src, Point& cntrl_synch)
 {
   float lenAB = std::sqrt( ((anchor.x-cntrl_src.x)*(anchor.x-cntrl_src.x)) + ((anchor.y-cntrl_src.y)*(anchor.y-cntrl_src.y)) );
@@ -2798,7 +3452,10 @@ void PF::Polygon::build_mask(SplineCurve& scurve)
     fill_polygon(points, get_opacity(), mask, rc);
     
     if ( get_falloff() > 0.f ) {
-      fill_polygon_falloff(points, get_falloff(), get_opacity(), scurve, mask, rc);
+//      points.push_back(points[0]);
+//      fill_polygon_falloff(points, is_clockwise(), get_falloff(), get_opacity(), scurve, mask, rc);
+      fill_polygon_falloff2(scurve, mask, rc);
+//      fill_polygon_falloff3(points, get_falloff(), get_opacity(), scurve, mask, rc);
     }
   }
   else {
@@ -2806,6 +3463,7 @@ void PF::Polygon::build_mask(SplineCurve& scurve)
   }
   
   test_mask(mask, rc);
+  
 }
 
 // -----------------------------------
@@ -3144,8 +3802,8 @@ void PF::Rectangle::build_mask(SplineCurve& scurve)
   }
   
   if ( get_falloff() > 0.f ) {
-    fill_polygon_falloff(points1, get_falloff(), get_opacity(), scurve, mask, rc);
-    fill_polygon_falloff(points2, get_falloff(), get_opacity(), scurve, mask, rc);
+    fill_polygon_falloff(points1, is_clockwise(), get_falloff(), get_opacity(), scurve, mask, rc);
+    fill_polygon_falloff(points2, is_clockwise(), get_falloff(), get_opacity(), scurve, mask, rc);
   }
 
   points1.push_back(points1[0]);

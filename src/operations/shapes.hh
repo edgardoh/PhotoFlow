@@ -1045,17 +1045,31 @@ public:
   void inter_segments(std::vector<Point>& points);
   
   bool is_clockwise();
-  
+  static int distance2(int x1, int y1, int x2, int y2)
+  {
+    const int dx = x2 - x1;
+    const int dy = y2 - y1;
+     return dx * dx + dy * dy;
+  };
+  static int get_nearest_pixel_distance2(int pixelX, int pixelY, float* buffer, VipsRect& rc);
+  static int rasterCircle(int x0, int y0, int radius, float* buffer, VipsRect& rc);
+
   static bool generate_arc_points(Point& cmax, Point& bmin, /*Point& bmin2,*/ Point& bmax, std::vector<Point>& points, bool clockwise);
   void get_falloff_points(std::vector<Point>& points);
   
   static void fill_polygon(std::vector<Point>& points, float opacity, float* buffer, VipsRect& rc);
+  static void fill_polygon_falloff3(std::vector<Point>& points, float falloff, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc);
 
   static void fill_segment_falloff(std::vector<Point>& poly_pt, Point& pt1, Point& pt2, float falloff2, float falloff2_1, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc);
-  static void fill_polygon_falloff(std::vector<Point>& poly_pt, float falloff, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc);
+  static void fill_point_falloff(std::vector<Point>& poly_pt, Point& pt1, float falloff2, float falloff2_1, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc);
+  static void fill_polygon_falloff(std::vector<Point>& poly_pt, bool clockwise, float falloff, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc);
   static void draw_polygon_segments(std::vector<Point>& points, float pen_size, float falloff, float opacity, bool closed_shape, SplineCurve& scurve, float* buffer, VipsRect& rc);
   
+  void fill_polygon_falloff2(SplineCurve& scurve, float* buffer, VipsRect& rc);
+  static void fill_polygon_segment_falloff(std::vector<Point>& points, Point& pt3_first, Point& pt4_prev, bool clockwise, float falloff, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc);
+
   static void expand_segment(Point& pt1, Point& pt2, Point& pt3, float length2);
+  static void expand_segment_to(Point& pt1, Point& pt2, Point& pt3, float length_to);
   static void draw_segment(std::vector<Point>& poly_pt_in, std::vector<Point>& poly_pt_out, Point& pt1, Point& pt2, 
       float pen_size2, float falloff2, float falloff2_1, float opacity, SplineCurve& scurve, float* buffer, VipsRect& rc);
 
